@@ -29,7 +29,8 @@ HTTP_TIMEOUT_SECONDS = 60
 # How many times to try a request before reporting a failure.
 HTTP_MAX_ATTEMPTS = 3
 
-# How long to wait between attempts.
+# How long to wait before the second attempt. The wait doubles before each
+# later attempt: with these settings, 5 seconds and then 10.
 HTTP_RETRY_WAIT_SECONDS = 5
 
 # How we identify ourselves to servers. Deliberately generic: no personal details.

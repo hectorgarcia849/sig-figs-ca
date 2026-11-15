@@ -49,14 +49,15 @@ class FakeStatCan:
         return f"zip contents of {name}".encode()
 
     def answer(self, request: httpx.Request) -> httpx.Response:
-        
+
         path = request.url.path
         response = httpx.Response(404, json={"status": "FAILED", "object": "Not found"})
 
         if path.endswith("/getCubeMetadata"):
-            
             if self.details_status != "SUCCESS":
-                response = httpx.Response(200, json=[{"status": "FAILED", "object": "No such table"}])
+                response = httpx.Response(
+                    200, json=[{"status": "FAILED", "object": "No such table"}]
+                )
 
             else:
                 details = {
@@ -66,19 +67,19 @@ class FakeStatCan:
                     "cubeStartDate": "2008-01-01",
                     "cubeEndDate": "2024-01-01",
                 }
-                
+
                 response = httpx.Response(200, json=[{"status": "SUCCESS", "object": details}])
-        
+
         elif "/getFullTableDownloadCSV/" in path:
             product_id, language = path.split("/")[-2:]
             url = (
                 f"https://www150.statcan.gc.ca/n1/tbl/csv/{product_id}-{FILE_SUFFIX[language]}.zip"
             )
             response = httpx.Response(200, json={"status": "SUCCESS", "object": url})
-        
+
         elif path.endswith(".zip"):
             self.downloaded_paths.append(path)
-            
+
             if self.fail_downloads:
                 response = httpx.Response(500)
             else:
@@ -94,14 +95,14 @@ def test_downloads_new_release_with_manifest(tmp_path):
 
     assert result.status == "downloaded"
     release = raw_table_folder(tmp_path, TABLE) / RELEASE_FOLDER
-    
+
     assert sorted(path.name for path in release.iterdir()) == [
         "10100005-eng.zip",
         "10100005-fra.zip",
         MANIFEST_FILE_NAME,
         METADATA_FILE_NAME,
     ]
-    
+
     manifest = json.loads((release / MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
     assert manifest["product_id"] == "10100005"
     assert manifest["release_time"] == RELEASE_TIME

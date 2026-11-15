@@ -33,7 +33,6 @@ import hashlib
 import json
 import logging
 import shutil
-import ssl
 import sys
 import tempfile
 from dataclasses import asdict, dataclass
@@ -43,14 +42,11 @@ from typing import Literal
 
 import httpx
 
+from public_spend_tracker_pipeline.http_client import open_client
 from public_spend_tracker_pipeline.settings import (
     DATA_ROOT,
-    HTTP_MAX_ATTEMPTS,
-    HTTP_TIMEOUT_SECONDS,
     STATCAN_API_URL,
     STATCAN_TABLES,
-    TLS_KEY_EXCHANGE,
-    USER_AGENT,
     StatCanTable,
 )
 
@@ -296,22 +292,6 @@ def extract_all(
         log.info(result.describe())
         results.append(result)
     return results
-
-
-def open_client() -> httpx.Client:
-    """A web client set up for Statistics Canada.
-
-    Retries only cover failed connections for now. http_client.py (the next
-    script) will replace this with retries on server errors too.
-    """
-    encryption = ssl.create_default_context()
-    encryption.set_ecdh_curve(TLS_KEY_EXCHANGE)  # see settings.TLS_KEY_EXCHANGE for why
-    return httpx.Client(
-        timeout=HTTP_TIMEOUT_SECONDS,
-        headers={"User-Agent": USER_AGENT},
-        follow_redirects=True,
-        transport=httpx.HTTPTransport(verify=encryption, retries=HTTP_MAX_ATTEMPTS - 1),
-    )
 
 
 def main() -> int:
