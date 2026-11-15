@@ -65,12 +65,19 @@ class StatCanTable:
                 because they give us the official French names of functions
                 and governments. Context tables (inflation, population, GDP)
                 are numbers we label ourselves, so English is enough.
+    dimensions  The table's own columns, in the order they appear: each one's
+                name exactly as Statistics Canada publishes it in English, and
+                the short name we use for it. Every table also has the standard
+                columns all Statistics Canada tables share (date, place,
+                value...), so only the columns in between are listed here.
+                If Statistics Canada changes these, the build stops.
     """
 
     product_id: str
     name: str
     purpose: str
     languages: tuple[str, ...]
+    dimensions: tuple[tuple[str, str], ...] = ()
 
 
 STATCAN_TABLES: tuple[StatCanTable, ...] = (
@@ -79,24 +86,38 @@ STATCAN_TABLES: tuple[StatCanTable, ...] = (
         name="cofog_consolidated",
         purpose="Canada combined and province-wide spending by function",
         languages=(ENGLISH, FRENCH),
+        dimensions=(
+            ("Public sector components", "component"),
+            ("Canadian Classification of Functions of Government (CCOFOG)", "function"),
+        ),
     ),
     StatCanTable(
         product_id="10100024",
         name="cofog_by_component",
         purpose="Federal and provincial-government-only spending by function",
         languages=(ENGLISH, FRENCH),
+        dimensions=(
+            ("Public sector components", "component"),
+            ("Canadian Classification of Functions of Government (CCOFOG)", "function"),
+        ),
     ),
     StatCanTable(
         product_id="10100020",
         name="gfs_municipal",
         purpose="Transfers received by municipalities (the municipal bucket)",
         languages=(ENGLISH, FRENCH),
+        dimensions=(
+            ("Public sector components", "component"),
+            ("Display value", "display_value"),
+            ("Statement of operations and balance sheet", "gfs_item"),
+        ),
     ),
     StatCanTable(
         product_id="18100004",
         name="cpi_monthly",
         purpose="Consumer price index, to show spending in real dollars",
         languages=(ENGLISH,),
+        dimensions=(("Products and product groups", "product"),),
     ),
     StatCanTable(
         product_id="17100009",
@@ -109,11 +130,69 @@ STATCAN_TABLES: tuple[StatCanTable, ...] = (
         name="gdp_national_quarterly",
         purpose="National GDP, to show spending as a share of the economy",
         languages=(ENGLISH,),
+        dimensions=(
+            ("Prices", "prices"),
+            ("Seasonal adjustment", "seasonal_adjustment"),
+            ("Estimates", "estimate"),
+        ),
     ),
     StatCanTable(
         product_id="36100222",
         name="gdp_provincial_annual",
         purpose="Provincial and territorial GDP, to show spending as a share of the economy",
         languages=(ENGLISH,),
+        dimensions=(
+            ("Prices", "prices"),
+            ("Estimates", "estimate"),
+        ),
     ),
+)
+
+
+# --- The governments we cover -----------------------------------------------
+
+# Kinds of jurisdiction.
+COUNTRY = "country"
+PROVINCE = "province"
+TERRITORY = "territory"
+
+
+@dataclass(frozen=True)
+class Jurisdiction:
+    """One place whose governments we cover.
+
+    code          Our two-letter code, the same as the postal abbreviation and
+                  the page address (/en/governments/on). "ca" is Canada as a
+                  whole: the federal government, all governments combined, or
+                  all provinces and territories combined, depending on the view.
+    kind          COUNTRY, PROVINCE or TERRITORY.
+    statcan_name  The place's English name in Statistics Canada's files. Places
+                  are matched by name because Statistics Canada's place IDs
+                  differ between tables (some use 2016 boundaries, some 2021).
+    cpi_place     The place whose consumer price index we use. Provinces have
+                  their own; the territories use their capital city.
+    """
+
+    code: str
+    kind: str
+    statcan_name: str
+    cpi_place: str
+
+
+# In Statistics Canada's usual order: east to west, then the territories.
+JURISDICTIONS: tuple[Jurisdiction, ...] = (
+    Jurisdiction("ca", COUNTRY, "Canada", "Canada"),
+    Jurisdiction("nl", PROVINCE, "Newfoundland and Labrador", "Newfoundland and Labrador"),
+    Jurisdiction("pe", PROVINCE, "Prince Edward Island", "Prince Edward Island"),
+    Jurisdiction("ns", PROVINCE, "Nova Scotia", "Nova Scotia"),
+    Jurisdiction("nb", PROVINCE, "New Brunswick", "New Brunswick"),
+    Jurisdiction("qc", PROVINCE, "Quebec", "Quebec"),
+    Jurisdiction("on", PROVINCE, "Ontario", "Ontario"),
+    Jurisdiction("mb", PROVINCE, "Manitoba", "Manitoba"),
+    Jurisdiction("sk", PROVINCE, "Saskatchewan", "Saskatchewan"),
+    Jurisdiction("ab", PROVINCE, "Alberta", "Alberta"),
+    Jurisdiction("bc", PROVINCE, "British Columbia", "British Columbia"),
+    Jurisdiction("yt", TERRITORY, "Yukon", "Whitehorse, Yukon"),
+    Jurisdiction("nt", TERRITORY, "Northwest Territories", "Yellowknife, Northwest Territories"),
+    Jurisdiction("nu", TERRITORY, "Nunavut", "Iqaluit, Nunavut"),
 )

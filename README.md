@@ -49,6 +49,13 @@ pipeline/                    the data pipeline (Python package)
     http_client.py           web connections that retry brief server problems
     paths.py                 where every data file lives
     extract/statcan.py       downloads Statistics Canada tables as published
+    transform/base.py        what every transformer declares, and shared checks
+    transform/staged_statcan.py  cleans each Statistics Canada table into a staged dataset
+    transform/statcan_sql.py     SQL pieces shared by the model transformers
+    transform/model_reference.py jurisdictions and the COFOG function tree
+    transform/model_spending.py  spending in the four views, and municipal transfers
+    transform/model_context.py   CPI, population and GDP by fiscal and calendar year
+    transform/model_sources.py   the source behind every figure, with links
   tests/
 justfile                     every project command
 ```
