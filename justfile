@@ -18,10 +18,18 @@ lint:
     uv run ruff check .
     uv run ruff format --check .
 
-# Download the latest Statistics Canada tables into data/raw/
+# Download new Statistics Canada releases into data/raw/
 extract:
-    uv run python -m public_spend_tracker_pipeline.extract.statcan
+    uv run pst extract
 
 # Build the database from everything downloaded, checking every step
 build:
-    uv run python -m public_spend_tracker_pipeline.build
+    uv run pst build
+
+# Download, then build: the everyday command
+update:
+    uv run pst update
+
+# Show downloads, builds and the approved build (changes nothing)
+status:
+    uv run pst status

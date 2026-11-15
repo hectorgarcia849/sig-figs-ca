@@ -298,12 +298,12 @@ def extract_all(
     return results
 
 
-def main() -> int:
-    """Extract every table and report. Returns 1 if any table failed, else 0."""
-    log_path = start_logging("extract", new_build_id())
+def run_extract(data_root: Path = DATA_ROOT) -> int:
+    """Extract every table into a data folder and report. Returns 1 if any table failed, else 0."""
+    log_path = start_logging("extract", new_build_id(), data_root)
     try:
         with open_client() as client:
-            results = extract_all(client)
+            results = extract_all(client, data_root=data_root)
         failed = [result for result in results if result.status == "failed"]
         if failed:
             log.error(f"{len(failed)} of {len(results)} tables failed. Log: {log_path}")
@@ -311,6 +311,11 @@ def main() -> int:
         return 0
     finally:
         stop_logging()
+
+
+def main() -> int:
+    """Extract every table into the default data folder (see settings.DATA_ROOT)."""
+    return run_extract(DATA_ROOT)
 
 
 if __name__ == "__main__":

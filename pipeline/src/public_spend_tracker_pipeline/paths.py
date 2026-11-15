@@ -140,6 +140,19 @@ def serving_build_folder(build_id: str, data_root: Path = DATA_ROOT) -> Path:
     return data_root / SERVING / _labelled(BUILD_LABEL, build_id)
 
 
+def stored_builds(data_root: Path = DATA_ROOT) -> list[str]:
+    """The IDs of every build folder in serving/, oldest first, complete or not."""
+    serving = data_root / SERVING
+    if not serving.is_dir():
+        return []
+    prefix = f"{BUILD_LABEL}="
+    return sorted(
+        folder.name.removeprefix(prefix)
+        for folder in serving.iterdir()
+        if folder.is_dir() and folder.name.startswith(prefix)
+    )
+
+
 def current_build_file(data_root: Path = DATA_ROOT) -> Path:
     """The record of which build was approved and released: data/serving/current.json"""
     return data_root / SERVING / CURRENT_BUILD_FILE_NAME

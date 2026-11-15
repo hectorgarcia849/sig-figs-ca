@@ -543,17 +543,18 @@ def _log_summary(build: Build, database: Path) -> None:
 # --- Command ----------------------------------------------------------------
 
 
-def main() -> int:
-    """Run a build of everything downloaded. Returns 0 if it finished, 1 if it stopped."""
+def build_everything(data_root: Path = DATA_ROOT) -> int:
+    """Build from everything downloaded in a data folder. Returns 0 if it finished, 1 if not."""
     build_id = new_build_id()
-    log_path = start_logging("build", build_id)
+    log_path = start_logging("build", build_id, data_root)
     try:
-        releases = find_releases()
+        releases = find_releases(data_root)
         run_build(
             staged_transformers(releases),
             model_transformers(releases),
             latest_releases(releases),
             build_id,
+            data_root=data_root,
             serving=Serving(),
         )
     except BuildError as error:
@@ -567,6 +568,11 @@ def main() -> int:
     finally:
         stop_logging()
     return 0
+
+
+def main() -> int:
+    """Build from the default data folder (see settings.DATA_ROOT)."""
+    return build_everything(DATA_ROOT)
 
 
 if __name__ == "__main__":

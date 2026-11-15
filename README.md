@@ -6,9 +6,9 @@ figure links to its source.
 
 See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
-**Status:** step 1 (local pipeline) in progress. Downloading, every
-transformer, the database build and the measure views (real dollars, per
-person, share of GDP) work.
+**Status:** step 1 (local pipeline) is complete: downloading, every
+transformer, the database build, the measure views (real dollars, per person,
+share of GDP) and the `pst` command all work. Next: the public site.
 
 ## Setup
 
@@ -21,29 +21,30 @@ just setup          # or: uv sync --all-packages
 
 ## Use
 
-Download the latest release of every Statistics Canada table we use:
+Everything goes through one command, `pst`:
 
 ```bash
-just extract        # or: uv run python -m public_spend_tracker_pipeline.extract.statcan
+just update         # or: uv run pst update     download new releases, then build
+just status         # or: uv run pst status     what is downloaded and built
+just extract        # or: uv run pst extract    download only
+just build          # or: uv run pst build      build only
 ```
 
-Files land in `data/raw/source=statcan/table=<number>/release=<date>/`. Running
-it again only downloads tables that have a new release. Set `PST_DATA_ROOT` to
-store data somewhere other than `./data`.
-
-Build the database from everything downloaded:
-
-```bash
-just build          # or: uv run python -m public_spend_tracker_pipeline.build
-```
+Downloads land in `data/raw/source=statcan/table=<number>/release=<date>/`;
+only tables with a new release are downloaded. `update` stops before building
+if any download fails.
 
 Each build checks every dataset and saves only if every check passes. The
 result is `data/serving/build=<id>/fiscal.duckdb`, with `build_manifest.json`
 recording how it was made. The database holds the model tables plus the
 measure views defined in [schema/serving.sql](schema/serving.sql).
 
-Every run writes a log to `data/logs/`. Problems that need attention start with
-`SOURCE CHANGED` (Statistics Canada changed a table) or `CHECK FAILED`:
+To use a data folder other than `./data`, pass `--data-root` (e.g.
+`uv run pst --data-root /tmp/test build`) or set `PST_DATA_ROOT`.
+
+Every run of `extract` or `build` writes a log to `data/logs/`. Problems that
+need attention start with `SOURCE CHANGED` (Statistics Canada changed a table)
+or `CHECK FAILED`:
 
 ```bash
 grep -rE "SOURCE CHANGED|CHECK FAILED" data/logs/
@@ -66,6 +67,7 @@ schema/serving.sql           the measure views: the contract with the API and si
 pipeline/                    the data pipeline (Python package)
   src/public_spend_tracker_pipeline/
     settings.py              tables and governments we use, folders, connection settings
+    cli.py                   the pst command: extract, build, update, status
     build.py                 runs every step in order, checks, saves the database
     logs.py                  logging to the screen and a log file per run
     serving.py               adds the measure views and build_info, and checks them
