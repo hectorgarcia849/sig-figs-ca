@@ -1,0 +1,12 @@
+# Downloaded and generated data never goes in git.
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# macOS
+.DS_Store

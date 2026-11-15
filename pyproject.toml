@@ -1,0 +1,24 @@
+# Workspace root. Each part of the project (pipeline now; api later) is its own
+# Python package in a subfolder, managed together by uv.
+
+[tool.uv.workspace]
+members = ["pipeline"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["pipeline/tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# E/F: errors, I: import order, UP: modern syntax, B: likely bugs
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["public_spend_tracker_pipeline"]
