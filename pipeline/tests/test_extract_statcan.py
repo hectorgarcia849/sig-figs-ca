@@ -12,13 +12,13 @@ import httpx
 import pytest
 
 from public_spend_tracker_pipeline.extract.statcan import (
-    MANIFEST_FILE_NAME,
     METADATA_FILE_NAME,
+    SOURCE_NAME,
     StatCanError,
     extract_all,
     extract_table,
-    raw_table_folder,
 )
+from public_spend_tracker_pipeline.paths import MANIFEST_FILE_NAME, raw_table_folder
 from public_spend_tracker_pipeline.settings import ENGLISH, FRENCH, StatCanTable
 
 TABLE = StatCanTable(
@@ -94,7 +94,7 @@ def test_downloads_new_release_with_manifest(tmp_path):
     result = extract_table(fake.client(), TABLE, data_root=tmp_path)
 
     assert result.status == "downloaded"
-    release = raw_table_folder(tmp_path, TABLE) / RELEASE_FOLDER
+    release = raw_table_folder(SOURCE_NAME, TABLE.product_id, tmp_path) / RELEASE_FOLDER
 
     assert sorted(path.name for path in release.iterdir()) == [
         "10100005-eng.zip",
@@ -129,7 +129,9 @@ def test_new_release_is_stored_beside_the_old_one(tmp_path):
 
     extract_table(FakeStatCan(release_time="2026-11-26T08:30").client(), TABLE, data_root=tmp_path)
 
-    folders = sorted(path.name for path in raw_table_folder(tmp_path, TABLE).iterdir())
+    folders = sorted(
+        path.name for path in raw_table_folder(SOURCE_NAME, TABLE.product_id, tmp_path).iterdir()
+    )
     assert folders == [RELEASE_FOLDER, "release=2026-11-26"]
 
 
@@ -137,7 +139,7 @@ def test_failed_download_leaves_nothing_behind(tmp_path):
     results = extract_all(FakeStatCan(fail_downloads=True).client(), (TABLE,), data_root=tmp_path)
 
     assert results[0].status == "failed"
-    assert list(raw_table_folder(tmp_path, TABLE).iterdir()) == []
+    assert list(raw_table_folder(SOURCE_NAME, TABLE.product_id, tmp_path).iterdir()) == []
 
 
 def test_error_from_statcan_names_the_table(tmp_path):

@@ -43,6 +43,11 @@ from typing import Literal
 import httpx
 
 from public_spend_tracker_pipeline.http_client import open_client
+from public_spend_tracker_pipeline.paths import (
+    MANIFEST_FILE_NAME,
+    raw_release_folder,
+    raw_table_folder,
+)
 from public_spend_tracker_pipeline.settings import (
     DATA_ROOT,
     STATCAN_API_URL,
@@ -55,8 +60,8 @@ log = logging.getLogger(__name__)
 # Name of this source in folder paths and manifests.
 SOURCE_NAME = "statcan"
 
-# Files we write next to the downloaded tables.
-MANIFEST_FILE_NAME = "_manifest.json"
+# Statistics Canada's description of the table, saved next to the downloads.
+# (The manifest's file name comes from paths.py, since every extractor shares it.)
 METADATA_FILE_NAME = "metadata.json"
 
 # Start of the name of the temporary folder used while downloading.
@@ -231,11 +236,6 @@ def write_manifest(
     (folder / MANIFEST_FILE_NAME).write_text(text + "\n", encoding="utf-8")
 
 
-def raw_table_folder(data_root: Path, table: StatCanTable) -> Path:
-    """The folder holding every release we have stored for a table."""
-    return data_root / "raw" / f"source={SOURCE_NAME}" / f"table={table.product_id}"
-
-
 # --- Putting it together ----------------------------------------------------
 
 
@@ -244,8 +244,10 @@ def extract_table(
 ) -> ExtractResult:
     """Download a table's latest release, unless we already have it."""
     details = fetch_table_details(client, table.product_id)
-    table_folder = raw_table_folder(data_root, table)
-    release_folder = table_folder / f"release={details.release_date.isoformat()}"
+    table_folder = raw_table_folder(SOURCE_NAME, table.product_id, data_root)
+    release_folder = raw_release_folder(
+        SOURCE_NAME, table.product_id, details.release_date, data_root
+    )
 
     if (release_folder / MANIFEST_FILE_NAME).exists():
         return ExtractResult(table, "already_current", details.release_date)

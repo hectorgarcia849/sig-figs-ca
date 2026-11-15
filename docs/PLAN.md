@@ -140,11 +140,15 @@ Statistics Canada data API (free, no key)
 gs://public_spend_tracker-data-prod/
 ├── raw/source=statcan/table=<product_id>/release=<date>/   (files + _manifest.json)
 ├── staged/dataset=<name>/release=<date>/data.parquet
-├── model/<table>/build=<timestamp>/data.parquet
+├── model/dataset=<name>/build=<build_id>/data.parquet
 └── serving/
-    ├── builds/<timestamp>/fiscal.duckdb + build_manifest.json
+    ├── build=<build_id>/fiscal.duckdb + build_manifest.json
     └── current.json      record of the approved build
 ```
+
+Every folder below the top level is named "label=value", so tools such as
+DuckDB can read the release date or build ID straight from the path. A build ID
+is the UTC time the build started, e.g. `20261114-153000`.
 
 Raw files are kept forever (they hold the revision history). Staged and model
 outputs can be regenerated and expire after a set period.

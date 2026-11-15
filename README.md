@@ -47,6 +47,7 @@ pipeline/                    the data pipeline (Python package)
   src/public_spend_tracker_pipeline/
     settings.py              tables we use, folders, connection settings
     http_client.py           web connections that retry brief server problems
+    paths.py                 where every data file lives
     extract/statcan.py       downloads Statistics Canada tables as published
   tests/
 justfile                     every project command
