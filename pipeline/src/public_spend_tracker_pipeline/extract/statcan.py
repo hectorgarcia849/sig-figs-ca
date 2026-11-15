@@ -43,8 +43,10 @@ from typing import Literal
 import httpx
 
 from public_spend_tracker_pipeline.http_client import open_client
+from public_spend_tracker_pipeline.logs import start_logging, stop_logging
 from public_spend_tracker_pipeline.paths import (
     MANIFEST_FILE_NAME,
+    new_build_id,
     raw_release_folder,
     raw_table_folder,
 )
@@ -298,16 +300,17 @@ def extract_all(
 
 def main() -> int:
     """Extract every table and report. Returns 1 if any table failed, else 0."""
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-    # httpx logs every request at INFO level; keep our output to one line per table.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    with open_client() as client:
-        results = extract_all(client)
-    failed = [result for result in results if result.status == "failed"]
-    if failed:
-        log.error(f"{len(failed)} of {len(results)} tables failed.")
-        return 1
-    return 0
+    log_path = start_logging("extract", new_build_id())
+    try:
+        with open_client() as client:
+            results = extract_all(client)
+        failed = [result for result in results if result.status == "failed"]
+        if failed:
+            log.error(f"{len(failed)} of {len(results)} tables failed. Log: {log_path}")
+            return 1
+        return 0
+    finally:
+        stop_logging()
 
 
 if __name__ == "__main__":

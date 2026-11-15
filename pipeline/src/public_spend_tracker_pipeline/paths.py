@@ -12,9 +12,11 @@ plain copy of the folder tree.
     │       one cleaned dataset per source table release
     ├── model/dataset=spending/build=20261114-153000/data.parquet
     │       the joined-up tables, produced by one build
-    └── serving/
-        ├── build=20261114-153000/fiscal.duckdb + build_manifest.json
-        └── current.json      record of the approved build
+    ├── serving/
+    │   ├── build=20261114-153000/fiscal.duckdb + build_manifest.json
+    │   └── current.json      record of the approved build
+    └── logs/20261114-153000-build.log
+            one log file per run of a pipeline command
 
 Folders below the top level are named "label=value". DuckDB and other tools
 read that pattern as a column, so a release date or build ID can be read
@@ -34,6 +36,13 @@ RAW = "raw"  # files exactly as downloaded, never changed, kept forever
 STAGED = "staged"  # cleaned and typed, one dataset per source table
 MODEL = "model"  # the joined-up tables the site is built on
 SERVING = "serving"  # the database file the API serves
+
+# Not a stage: one log file per run of a pipeline command.
+LOGS = "logs"
+
+# While a build runs, its staged files are written to a temporary work folder
+# with this name start, and moved into place only if the whole build passes.
+BUILD_WORK_FOLDER_PREFIX = ".building-"
 
 # --- Names inside the folders -----------------------------------------------
 
@@ -147,3 +156,22 @@ def new_build_id(now: datetime | None = None) -> str:
 def _labelled(label: str, value: str) -> str:
     """A "label=value" folder name, e.g. "release=2025-11-27"."""
     return f"{label}={value}"
+
+
+# --- Logs and build work ------------------------------------------------------
+
+
+def log_file(run_id: str, run_name: str, data_root: Path = DATA_ROOT) -> Path:
+    """The log file for one run of a pipeline command.
+
+    For example: data/logs/20261114-153000-build.log
+    """
+    return data_root / LOGS / f"{run_id}-{run_name}.log"
+
+
+def build_work_folder(build_id: str, data_root: Path = DATA_ROOT) -> Path:
+    """The temporary folder a build writes its staged files to before moving them into place.
+
+    For example: data/.building-20261114-153000
+    """
+    return data_root / f"{BUILD_WORK_FOLDER_PREFIX}{build_id}"

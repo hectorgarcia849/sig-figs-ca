@@ -86,6 +86,9 @@ class Transformer(ABC):
     description: str
     stage: str
     inputs: tuple[str, ...] = ()
+    # Staged transformers set this to the source release they read; the runner
+    # saves their output under it. Model transformers leave it empty.
+    release: date | None = None
 
     @abstractmethod
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:

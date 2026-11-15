@@ -98,7 +98,8 @@ Each context value is stored twice: the fiscal-year value (with a column
 recording the method: exact or blended) and the plain calendar-year value.
 
 Measures shown on the site: nominal dollars, real dollars (latest fiscal year's
-dollars by default), per person, and share of GDP.
+dollars by default, adjusted with each jurisdiction's own CPI), per person, real
+per person, and share of GDP. They are defined once in `schema/serving.sql`.
 
 ## Milestones
 
@@ -171,7 +172,7 @@ GET /api/v1/meta            build id, releases, years, measures, notes
 GET /api/v1/governments     codes, type, English and French labels
 GET /api/v1/functions       COFOG tree with sub-function availability
 GET /api/v1/spending        ?gov= &function= &level=1|2 &from= &to=
-                            &measure=nominal|real|per_capita|pct_gdp
+                            &measure=nominal|real|per_capita|real_per_capita|pct_gdp
                             &counting=federal|province_wide|provincial_government|canada
                             &context=fiscal|calendar &format=json|csv
 GET /api/v1/context         ?gov= &series=population,cpi,gdp

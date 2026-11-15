@@ -155,7 +155,7 @@ class StagedStatCanTable(Transformer):
         # The CSV files are deleted now, but their contents are in DuckDB.
 
         row_count = db.sql(f"SELECT count(*) FROM {self._loaded_table(ENGLISH)}").fetchall()[0][0]
-        log.info(f"{self.label}: read {row_count:,} rows")
+        log.debug(f"{self.label}: read {row_count:,} rows")
         return db.sql(self._tidy_sql())
 
     def _unzip_csv(self, language: str, into: Path) -> Path:

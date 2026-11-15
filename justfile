@@ -21,3 +21,7 @@ lint:
 # Download the latest Statistics Canada tables into data/raw/
 extract:
     uv run python -m public_spend_tracker_pipeline.extract.statcan
+
+# Build the database from everything downloaded, checking every step
+build:
+    uv run python -m public_spend_tracker_pipeline.build
