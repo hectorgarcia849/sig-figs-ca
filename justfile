@@ -9,6 +9,7 @@ default:
 setup:
     uv sync --all-packages
     pnpm --dir web install
+    pnpm --dir web exec playwright install chromium
 
 # Run all tests
 test:
@@ -35,7 +36,11 @@ update:
 status:
     uv run pst status
 
-# Write the newest complete build's figures as JSON for the site (web/data/)
+# Approve a build for the public site: the newest complete one, or the one given
+approve *build:
+    uv run pst approve {{build}}
+
+# Write the approved build's figures as JSON for the site (web/data/)
 export:
     uv run pst export
 
@@ -61,5 +66,35 @@ web-check:
     pnpm --dir web lint
     pnpm --dir web test
 
-# Export the newest build, then build the site
+# Build the site, then check every page in a real browser (errors, accessibility, layout)
+web-e2e: web-build
+    pnpm --dir web test:e2e
+
+# Export the approved build, then build the site
 site: export web-build
+
+# --- Google Cloud and Firebase Hosting (see infra/README.md) ---
+
+# One-time: switch on the basic services, then make the bucket for Terraform's records
+infra-setup project:
+    gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com --project={{project}}
+    gcloud auth application-default set-quota-project {{project}}
+    gcloud storage buckets create gs://{{project}}-tfstate --project={{project}} --location=us-central1 --uniform-bucket-level-access --public-access-prevention
+    gcloud storage buckets update gs://{{project}}-tfstate --versioning
+    terraform -chdir=infra init -backend-config=bucket={{project}}-tfstate
+
+# Show what Terraform would change in Google Cloud (changes nothing)
+infra-plan:
+    terraform -chdir=infra plan
+
+# Make Terraform's changes in Google Cloud (asks before changing anything)
+infra-apply:
+    terraform -chdir=infra apply
+
+# Build and check the site from the approved build, and put it on a preview address
+deploy-preview:
+    infra/deploy.sh preview
+
+# Make the reviewed preview the live site
+deploy-live:
+    infra/deploy.sh live

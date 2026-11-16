@@ -3,6 +3,7 @@
 	// language switch, the page itself, and a footer naming the source.
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import LanguageLinks from '#lib/components/LanguageLinks.svelte';
 	import { addressInOtherLanguage, LOCALES, messages, otherLanguage } from '#lib/i18n/index.ts';
 	import type { Path } from '$app/types';
 	import type { LayoutProps } from './$types';
@@ -27,6 +28,10 @@
 	const otherLanguageAddress = $derived(
 		resolve(addressInOtherLanguage(page.url.pathname, data.lang) as Path)
 	);
+	const addresses = $derived({
+		[data.lang]: page.url.pathname,
+		[other]: otherLanguageAddress
+	} as Record<typeof data.lang, string>);
 
 	const sections = $derived([
 		{ label: m.governments, href: resolve('/[lang=lang]/governments', { lang: data.lang }) },
@@ -34,6 +39,13 @@
 		{ label: m.methodology, href: resolve('/[lang=lang]/methodology', { lang: data.lang }) }
 	]);
 </script>
+
+<LanguageLinks
+	siteUrl={data.siteUrl}
+	address={page.url.pathname}
+	{addresses}
+	includeWelcomePage={page.url.pathname === `/${data.lang}`}
+/>
 
 <a class="skip-link" href="#main">{m.skipToContent}</a>
 
@@ -68,9 +80,12 @@
 		{m.dataBuilt}
 		{builtOn}
 	</p>
-	<!-- An external link, not a page of this site. -->
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-	<p><a href={m.licenceUrl}>{m.licence}</a></p>
+	<p>
+		<!-- An external link, not a page of this site. -->
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+		<a href={m.licenceUrl}>{m.licence}</a> ·
+		<a href={resolve('/[lang=lang]/privacy', { lang: data.lang })}>{m.privacy}</a>
+	</p>
 </footer>
 
 <style>

@@ -33,6 +33,24 @@ export function drawChart(options: Plot.PlotOptions): string {
 	if (!document) {
 		throw new Error('No document to draw charts with (see hooks.server.ts).');
 	}
-	return Plot.plot({ width: CHART_WIDTH, style: { fontSize: FONT_SIZE }, ...options, document })
-		.outerHTML;
+	const chart = Plot.plot({
+		width: CHART_WIDTH,
+		style: { fontSize: FONT_SIZE },
+		...options,
+		document
+	});
+	removeInnerLabels(chart);
+	return chart.outerHTML;
+}
+
+/**
+ * Plot names each part of a chart for screen readers ("line", "dot", "rule"),
+ * which is not valid on those parts and tells a listener nothing. The chart's
+ * container (Chart.svelte) already describes the whole chart in one sentence,
+ * and the table under each chart gives every figure, so the names are removed.
+ */
+function removeInnerLabels(chart: Element): void {
+	for (const part of chart.querySelectorAll('[aria-label]')) {
+		part.removeAttribute('aria-label');
+	}
 }

@@ -24,3 +24,11 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Firebase CLI: its cache, and the site name it is given at deploy time (from Terraform)
+.firebase
+.firebaserc
+
+# Playwright: results and reports of the page checks
+/test-results
+/playwright-report

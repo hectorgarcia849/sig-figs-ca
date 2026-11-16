@@ -41,9 +41,38 @@ Run from the repository root with `just`, or from this folder with `pnpm`:
 | `just web-build`   | `pnpm build`                           | build the site into `build/`                           |
 | `just web-preview` | `pnpm preview`                         | serve `build/` at http://localhost:4173                |
 | `just web-check`   | `pnpm check && pnpm lint && pnpm test` | types, formatting and lint, tests                      |
-| `just site`        |                                        | export the newest build, then build the site           |
+| `just web-e2e`     | `pnpm build && pnpm test:e2e`          | check every built page in a real browser               |
+| `just site`        |                                        | export the approved build, then build the site         |
 
 pnpm comes with Node: turn it on once with `corepack enable pnpm`.
+
+## Page checks (e2e/)
+
+`pnpm test:e2e` serves `build/` on port 4174 and opens it in Chromium
+(Playwright). It checks every page in the sitemap: no console errors (a script
+blocked by the security policy shows up as one), no serious or critical
+accessibility problems (axe), a canonical link, and links to the same page in
+the other language. It also checks the skip link and switches by keyboard,
+phone-width layout, chart descriptions, CSV downloads, the "page not found"
+page and `build.json`. Install the browser once with
+`pnpm exec playwright install chromium`.
+
+## Publishing
+
+The site is published on Firebase Hosting (see `../infra/README.md`).
+`firebase.json` holds the hosting rules: addresses without `.html`, security
+headers, and caching (a year for files whose names change with their content,
+five minutes for pages and data files, so a release shows up quickly).
+
+The full address the site is published at is given at build time as
+`SITE_URL` (the deploy script takes it from Terraform; local builds use
+http://localhost:4173). Pages use it for the links search engines read: each
+page's canonical address and the same page in the other language (hreflang),
+`sitemap.xml` and `robots.txt`.
+
+Every page carries a content security policy (set in `vite.config.ts`): only
+the site's own scripts run. `build.json` names the approved build the site
+shows, so anyone can check which data is live.
 
 ## Layout
 
@@ -51,6 +80,7 @@ pnpm comes with Node: turn it on once with `corepack enable pnpm`.
 src/
   app.html, app.css        page shell; colours and spacing as CSS variables
   hooks.server.ts          sets <html lang> on each built page
+  firebase.json            hosting rules (in web/, not src/): headers, caching, clean addresses
   params.ts                only "en" and "fr" are valid at the start of an address
   lib/
     types.ts               the shape of each file in web/data/, and of series
@@ -67,16 +97,21 @@ src/
     i18n/                  interface text (en.ts, fr.ts) and language helpers
     server/data.ts         reads web/data/ at build time
     server/series.ts       turns exported rows into series
-    components/            KeyFigures; SpendingOverview (key figures and charts for one government)
+    server/pages.ts        every page address, for the sitemap
+    components/            KeyFigures; SpendingOverview (key figures and charts for one government);
+                           LanguageLinks (canonical and hreflang links for search engines)
     components/charts/     ChartFigure, Chart, DataTable
-    content/               long text, one file per language (the methodology)
+    content/               long text, one file per language (methodology, privacy)
     components/controls/   the switches: measure, year, and any choice of a few
   routes/
     +page.svelte           /  the bilingual welcome page
     [lang=lang]/           every page in one language: /en/... and /fr/...
       governments/[code]/  one page per government
       functions/[id]/      one page per function of government
-      methodology/         methodology and sources
+      methodology/         methodology, sources and licences
+      privacy/             what the site does with visitors' information
+    404/                   "page not found" in both languages, built as 404.html
+    sitemap.xml/, robots.txt/, build.json/   files built with the site
 ```
 
 Imports from `src/lib` are written `#lib/...` with the file's extension, e.g.

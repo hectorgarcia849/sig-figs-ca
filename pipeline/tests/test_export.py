@@ -11,10 +11,11 @@ from datetime import UTC, date, datetime
 import duckdb
 import pytest
 
+from public_spend_tracker_pipeline.approve import approve
 from public_spend_tracker_pipeline.export import (
     ExportError,
+    build_to_export,
     export_site,
-    newest_complete_build,
     run_export,
 )
 from public_spend_tracker_pipeline.paths import (
@@ -114,13 +115,14 @@ def out(tmp_path):
 # --- Choosing the build -----------------------------------------------------
 
 
-def test_newest_complete_build_skips_unfinished_ones(data_root):
-    assert newest_complete_build(data_root) == NEWER
+def test_the_approved_build_is_exported_not_the_newest(data_root):
+    approve(OLDER, data_root)
+    assert build_to_export(data_root) == OLDER
 
 
-def test_no_complete_build_gives_a_clear_error(tmp_path):
-    with pytest.raises(ExportError, match="no complete build yet"):
-        newest_complete_build(tmp_path)
+def test_no_approved_build_gives_a_clear_error(data_root):
+    with pytest.raises(ExportError, match="No build is approved yet"):
+        build_to_export(data_root)
 
 
 def test_an_unfinished_build_is_refused(data_root, out):
@@ -209,11 +211,17 @@ def test_a_failed_export_leaves_the_old_one_alone(data_root, out):
 # --- The command ------------------------------------------------------------
 
 
-def test_export_site_uses_the_newest_complete_build(data_root, out):
+def test_export_site_uses_the_approved_build(data_root, out):
+    approve(OLDER, data_root)
     assert export_site(data_root, destination=out) == 0
+    assert read(out, "meta.json")["build_id"] == OLDER
+
+
+def test_export_site_can_export_a_build_that_is_not_approved(data_root, out):
+    assert export_site(data_root, NEWER, out) == 0
     assert read(out, "meta.json")["build_id"] == NEWER
 
 
-def test_export_site_returns_1_when_there_is_no_build(tmp_path, out):
-    assert export_site(tmp_path / "empty", destination=out) == 1
+def test_export_site_returns_1_when_no_build_is_approved(data_root, out):
+    assert export_site(data_root, destination=out) == 1
     assert not out.exists()

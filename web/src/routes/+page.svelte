@@ -2,9 +2,20 @@
 	// The welcome page at /: both languages side by side, as on Government of
 	// Canada sites. Each half is marked with its language for screen readers.
 	import { resolve } from '$app/paths';
+	import LanguageLinks from '#lib/components/LanguageLinks.svelte';
 	import { en } from '#lib/i18n/en.ts';
 	import { fr } from '#lib/i18n/fr.ts';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 </script>
+
+<LanguageLinks
+	siteUrl={data.siteUrl}
+	address="/"
+	addresses={{ en: '/en', fr: '/fr' }}
+	includeWelcomePage
+/>
 
 <svelte:head>
 	<title>{en.siteName} | {fr.siteName}</title>

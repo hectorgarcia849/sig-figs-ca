@@ -230,6 +230,14 @@ spec so the front end cannot drift from it.
    **release summary** for review. The same summary feeds the public revision
    history on the Methodology page.
 
+Until this is automated, a release is three commands run by hand:
+`pst approve` (records the build in `current.json`), `just deploy-preview`
+(builds the site from the approved build, runs the page checks, and publishes
+to a Firebase preview address for review), and `just deploy-live` (promotes
+exactly that preview, then checks the live `build.json` shows the approved
+build). The site uses its free `web.app` address until a domain is bought;
+Terraform's `custom_domain` setting adds one without changing anything else.
+
 ### Hosting and cost (Google Cloud, `us-central1`)
 
 | Need | Service |
@@ -266,13 +274,17 @@ ESLint, Prettier, Vitest, Playwright (with axe accessibility checks) for the web
 
 ## Deferred topics
 
-- Visitor analytics and privacy (Quebec's privacy law requires consent for
-  tracking; cookieless analytics avoids a banner)
+- Visitor analytics (none at launch; wanted later. Quebec's privacy law
+  requires consent for tracking; cookieless analytics avoids a banner, and the
+  privacy page must be updated first)
+- Sign-in with Google or Facebook accounts (wanted later; brings personal
+  information, so Quebec's privacy law duties, a privacy contact and an
+  updated privacy page; the site would no longer be purely static)
+- A custom domain (the site uses its free web.app address until one is bought)
 - Monitoring: uptime checks, error reporting
 - Visual identity: typography, colours, chart style guide
 - Security basics: dependency updates, least-privilege service accounts
 - Governing-party band on trend charts
-- Licensing of code and derived data
 
 ## Principles
 
@@ -281,7 +293,9 @@ ESLint, Prettier, Vitest, Playwright (with axe accessibility checks) for the web
 - Limitations are stated where the figures appear, not only on the methodology page.
 - Not legal or investment advice.
 
-## Licensing of sources
+## Licensing
 
 Statistics Canada data is used under the Open Government Licence – Canada,
-which allows commercial use with attribution.
+which allows commercial use with attribution. The code is under the MIT
+licence. The figures the site publishes (pages and CSV downloads) are under
+Creative Commons Attribution 4.0, crediting the site and Statistics Canada.

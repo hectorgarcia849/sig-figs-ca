@@ -4,6 +4,7 @@
     pst build     build and check the database from everything downloaded
     pst update    extract, then build: the everyday command
     pst status    show downloads, builds and the approved build (changes nothing)
+    pst approve   approve a build: the one the public site shows
     pst export    write a build's figures as JSON for the site (web/data/)
 
 Run it from anywhere in the repository with "uv run pst <subcommand>".
@@ -12,8 +13,9 @@ Every subcommand accepts --data-root to use another data folder, e.g.
 "pst --data-root /tmp/test build". Without it, the PST_DATA_ROOT environment
 variable is used, and without that, ./data.
 
-export also takes --build (which build; the newest complete one by default)
-and --out (where to write; web/data/ by default).
+approve takes an optional build ID (the newest complete build by default).
+export takes --build (which build; the approved one by default) and --out
+(where to write; web/data/ by default).
 
 Exit codes: 0 when everything worked, 1 when anything failed.
 """
@@ -27,13 +29,13 @@ from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
+from public_spend_tracker_pipeline.approve import approve_build, approved_build
 from public_spend_tracker_pipeline.build import build_everything
 from public_spend_tracker_pipeline.export import export_site
 from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME, run_extract
 from public_spend_tracker_pipeline.paths import (
     BUILD_MANIFEST_FILE_NAME,
     complete_releases,
-    current_build_file,
     raw_table_folder,
     serving_build_folder,
     stored_builds,
@@ -85,8 +87,13 @@ def status(data_root: Path) -> int:
     for line in _build_lines(data_root):
         print(f"  {line}")
     print()
-    print(f"Approved build: {_approved_build(data_root)}")
+    print(f"Approved build: {approved_build(data_root) or 'none yet'}")
     return SUCCESS
+
+
+def approve(data_root: Path, build: str | None = None) -> int:
+    """Approve a build: the one the public site shows."""
+    return approve_build(data_root, build)
 
 
 def export(data_root: Path, build: str | None = None, out: Path = WEB_DATA_FOLDER) -> int:
@@ -136,15 +143,17 @@ def _build_lines(data_root: Path) -> list[str]:
     return lines
 
 
-def _approved_build(data_root: Path) -> str:
-    """The build recorded in serving/current.json, or "none yet"."""
-    path = current_build_file(data_root)
-    if not path.is_file():
-        return "none yet"
-    return json.loads(path.read_text(encoding="utf-8")).get("build_id", "unknown")
-
-
 # --- Reading the command line -----------------------------------------------
+
+
+def _add_approve_options(subcommand: argparse.ArgumentParser) -> None:
+    """The options only "pst approve" takes."""
+    subcommand.add_argument(
+        "build",
+        nargs="?",
+        metavar="BUILD_ID",
+        help="the build to approve (default: the newest complete build)",
+    )
 
 
 def _add_export_options(subcommand: argparse.ArgumentParser) -> None:
@@ -152,7 +161,7 @@ def _add_export_options(subcommand: argparse.ArgumentParser) -> None:
     subcommand.add_argument(
         "--build",
         metavar="BUILD_ID",
-        help="the build to export (default: the newest complete build)",
+        help="the build to export (default: the approved build)",
     )
     subcommand.add_argument(
         "--out",
@@ -163,10 +172,10 @@ def _add_export_options(subcommand: argparse.ArgumentParser) -> None:
 
 
 # Every subcommand, in the order "pst --help" lists them.
-SUBCOMMANDS = (extract, build, update, status, export)
+SUBCOMMANDS = (extract, build, update, status, approve, export)
 
 # Subcommands with options of their own, and the function that adds them.
-SUBCOMMAND_OPTIONS = {export: _add_export_options}
+SUBCOMMAND_OPTIONS = {approve: _add_approve_options, export: _add_export_options}
 
 # Options every subcommand shares, which are not passed on as subcommand options.
 SHARED_OPTIONS = ("run", "data_root")

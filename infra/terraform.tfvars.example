@@ -1,0 +1,12 @@
+# Copy this file to terraform.tfvars and fill in your values.
+
+project_id = "your-project-id"
+
+# Optional: change the free address (https://<site_id>.web.app).
+# site_id = "public-spend-tracker"
+
+# Optional: a domain you own, once you have one.
+# custom_domain = "example.ca"
+
+# Optional: the monthly alert amount, in your billing account's currency.
+# monthly_budget = 10

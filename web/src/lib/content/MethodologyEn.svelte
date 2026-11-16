@@ -112,3 +112,15 @@
 		shares of GDP are between 0 and 100%. If any check fails, nothing is published.
 	</p>
 </section>
+
+<section>
+	<h2>Licences</h2>
+	<p>
+		The figures on this site, including the CSV downloads, may be reused under the
+		<!-- An external link, not a page of this site. -->
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+		<a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0</a>
+		licence: credit this site and Statistics Canada. The site's code is under the MIT licence. Statistics
+		Canada's data is used under the Open Government Licence – Canada, as stated below.
+	</p>
+</section>

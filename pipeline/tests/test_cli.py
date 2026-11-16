@@ -28,6 +28,7 @@ class StandIns:
         monkeypatch.setattr(cli, "run_extract", self.stand_in("extract", extract_code))
         monkeypatch.setattr(cli, "build_everything", self.stand_in("build", build_code))
         monkeypatch.setattr(cli, "export_site", self.export_stand_in)
+        monkeypatch.setattr(cli, "approve_build", self.approve_stand_in)
 
     def stand_in(self, step, code):
         def run(data_root):
@@ -35,6 +36,10 @@ class StandIns:
             return code
 
         return run
+
+    def approve_stand_in(self, data_root, build_id):
+        self.calls.append(("approve", data_root, build_id))
+        return 0
 
     def export_stand_in(self, data_root, build_id, destination):
         self.calls.append(("export", data_root, build_id, destination))
@@ -46,7 +51,7 @@ def test_help_lists_every_subcommand(capsys):
         cli.main(["--help"])
     assert exit_info.value.code == 0
     help_text = capsys.readouterr().out
-    for subcommand in ("extract", "build", "update", "status", "export"):
+    for subcommand in ("extract", "build", "update", "status", "approve", "export"):
         assert subcommand in help_text
 
 
@@ -74,7 +79,19 @@ def test_failed_build_gives_exit_code_1(monkeypatch, tmp_path):
     assert cli.main(["--data-root", str(tmp_path), "build"]) == 1
 
 
-def test_export_defaults_to_the_newest_build_and_web_data(monkeypatch, tmp_path):
+def test_approve_defaults_to_the_newest_build(monkeypatch, tmp_path):
+    steps = StandIns(monkeypatch)
+    assert cli.main(["--data-root", str(tmp_path), "approve"]) == 0
+    assert steps.calls == [("approve", tmp_path, None)]
+
+
+def test_approve_takes_a_build_id(monkeypatch, tmp_path):
+    steps = StandIns(monkeypatch)
+    assert cli.main(["--data-root", str(tmp_path), "approve", "20261115-070145"]) == 0
+    assert steps.calls == [("approve", tmp_path, "20261115-070145")]
+
+
+def test_export_defaults_to_the_approved_build_and_web_data(monkeypatch, tmp_path):
     steps = StandIns(monkeypatch)
     assert cli.main(["--data-root", str(tmp_path), "export"]) == 0
     assert steps.calls == [("export", tmp_path, None, WEB_DATA_FOLDER)]

@@ -101,4 +101,11 @@ describe('drawing charts while pages are built', () => {
 		expect(markup).toContain('$92.3B p');
 		expect(markup).toContain('$52.7B p');
 	});
+
+	it('leaves out Plot’s names for chart parts (the chart is described as a whole)', () => {
+		expect(drawChart(trendChart(LINES, YEARS, 'amount', 'en'))).not.toContain('aria-label');
+		expect(drawChart(rankingChart(barsAt(LINES, 2, 'amount'), 'amount', 'en'))).not.toContain(
+			'aria-label'
+		);
+	});
 });

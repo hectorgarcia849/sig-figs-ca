@@ -156,6 +156,12 @@ export const en = {
 		provincesShare: (functionName: string, year: string, share: string) =>
 			`${functionName} in ${year}: ${share} spent by provinces and territories`
 	},
+	privacy: 'Privacy',
+	notFound: {
+		title: 'Page not found',
+		text: 'There is no page at this address. It may have moved, or the address may be mistyped.',
+		home: 'Go to the English home page'
+	},
 	licenceStatement:
 		'Contains information from Statistics Canada, used under the Open Government Licence – Canada. This does not constitute an endorsement by Statistics Canada of this site:'
 };

@@ -6,11 +6,10 @@ figure links to its source.
 
 See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
-**Status:** step 1 (local pipeline) is complete: downloading, every
-transformer, the database build, the measure views (real dollars, per person,
-share of GDP) and the `pst` command all work. Step 2 (the public site) has
-started: `pst export` writes the site's data, and the site skeleton in `web/`
-builds every page in English and French (placeholder content for now).
+**Status:** step 1 (local pipeline) and step 2 (the public site, in English
+and French) are complete. The site is ready to publish on Firebase Hosting at a
+free web.app address (see [infra/README.md](infra/README.md)); a custom domain
+can be added later. Next: the API and the Compare page.
 
 ## Setup
 
@@ -31,7 +30,8 @@ just update         # or: uv run pst update     download new releases, then buil
 just status         # or: uv run pst status     what is downloaded and built
 just extract        # or: uv run pst extract    download only
 just build          # or: uv run pst build      build only
-just export         # or: uv run pst export     write the site's data to web/data/
+just approve        # or: uv run pst approve    approve the newest build for the public site
+just export         # or: uv run pst export     write the approved build's data to web/data/
 ```
 
 Downloads land in `data/raw/source=statcan/table=<number>/release=<date>/`;
@@ -43,14 +43,17 @@ result is `data/serving/build=<id>/fiscal.duckdb`, with `build_manifest.json`
 recording how it was made. The database holds the model tables plus the
 measure views defined in [schema/serving.sql](schema/serving.sql).
 
-`export` copies the newest complete build's figures into JSON files in
-`web/data/` (not kept in git), which the site is built from. Pick a build with
-`--build <id>` or another folder with `--out <folder>`.
+A build is only a candidate until it is approved: `approve` records the
+newest complete build (or the one given, e.g. `pst approve <id>` to roll back)
+in `data/serving/current.json`. `export` copies the approved build's figures
+into JSON files in `web/data/` (not kept in git), which the site is built from.
+Export another build with `--build <id>` (e.g. to look at it before approving
+it) or to another folder with `--out <folder>`.
 
 To use a data folder other than `./data`, pass `--data-root` (e.g.
 `uv run pst --data-root /tmp/test build`) or set `PST_DATA_ROOT`.
 
-Every run of `extract`, `build` or `export` writes a log to `data/logs/`. Problems that
+Every run of `extract`, `build`, `approve` or `export` writes a log to `data/logs/`. Problems that
 need attention start with `SOURCE CHANGED` (Statistics Canada changed a table)
 or `CHECK FAILED`:
 
@@ -66,7 +69,13 @@ just web-preview    # or: pnpm --dir web preview      then open http://localhost
 just web-dev        # or: pnpm --dir web dev          live reload while editing
 ```
 
-See [web/README.md](web/README.md) for how the site is put together.
+See [web/README.md](web/README.md) for how the site is put together, and
+[infra/README.md](infra/README.md) for publishing it:
+
+```bash
+just deploy-preview # build from the approved build, check every page, put it on a preview address
+just deploy-live    # make the reviewed preview the live site
+```
 
 ## Tests and checks
 
@@ -74,7 +83,13 @@ See [web/README.md](web/README.md) for how the site is put together.
 just test           # or: uv run pytest
 just lint           # or: uv run ruff check . && uv run ruff format --check .
 just web-check      # or: pnpm --dir web check && pnpm --dir web lint && pnpm --dir web test
+just web-e2e        # or: pnpm --dir web build && pnpm --dir web test:e2e
 ```
+
+`web-e2e` opens every page of the built site in a real browser (Chromium,
+installed by `just setup`) and checks it loads without errors, has no serious
+accessibility problems (axe), links to the same page in the other language,
+and fits a phone screen.
 
 Tests run offline against a fake Statistics Canada server.
 
@@ -86,8 +101,9 @@ schema/serving.sql           the measure views: the contract with the API and si
 pipeline/                    the data pipeline (Python package)
   src/public_spend_tracker_pipeline/
     settings.py              tables and governments we use, folders, connection settings
-    cli.py                   the pst command: extract, build, update, status, export
+    cli.py                   the pst command: extract, build, update, status, approve, export
     build.py                 runs every step in order, checks, saves the database
+    approve.py               records which build the public site shows
     export.py                writes a build's figures as JSON for the site
     logs.py                  logging to the screen and a log file per run
     serving.py               adds the measure views and build_info, and checks them
@@ -103,10 +119,15 @@ pipeline/                    the data pipeline (Python package)
     transform/model_sources.py   the source behind every figure, with links
   tests/
 web/                         the public site (SvelteKit); see web/README.md
+infra/                       Terraform for Firebase Hosting, and deploy.sh; see infra/README.md
 justfile                     every project command
 ```
 
-## Data licence
+## Licences
 
-Statistics Canada data is used under the
-[Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada).
+- **Code:** MIT (see [LICENSE](LICENSE)).
+- **Figures published by the site** (including CSV downloads):
+  [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/),
+  crediting this site and Statistics Canada.
+- **Statistics Canada data** is used under the
+  [Open Government Licence – Canada](https://open.canada.ca/en/open-government-licence-canada).

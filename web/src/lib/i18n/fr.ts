@@ -147,6 +147,12 @@ export const fr: Messages = {
 		provincesShare: (functionName: string, year: string, share: string) =>
 			`${functionName}, ${year} : ${share} des dépenses par les provinces et territoires`
 	},
+	privacy: 'Confidentialité',
+	notFound: {
+		title: 'Page introuvable',
+		text: "Il n'y a aucune page à cette adresse. Elle a peut-être été déplacée, ou l'adresse contient une erreur.",
+		home: "Aller à la page d'accueil en français"
+	},
 	licenceStatement:
 		'Contient des renseignements de Statistique Canada, utilisés en vertu de la Licence du gouvernement ouvert – Canada. Cela ne constitue pas une approbation de ce site par Statistique Canada :'
 };

@@ -183,6 +183,7 @@
 <style>
 	.sub-functions label {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-s);
 		align-items: center;
 		margin-bottom: var(--space-m);
@@ -191,6 +192,7 @@
 
 	select {
 		font: inherit;
+		max-width: 100%;
 		padding: var(--space-xs) var(--space-s);
 	}
 

@@ -2,8 +2,8 @@
 
 Run it from the repository root with:
 
-    uv run pst export                  the newest complete build, into web/data/
-    uv run pst export --build <id>     a particular build
+    uv run pst export                  the approved build (see approve.py), into web/data/
+    uv run pst export --build <id>     a particular build, e.g. to try one before approving it
 
 It writes five files:
 
@@ -33,13 +33,13 @@ from pathlib import Path
 
 import duckdb
 
+from public_spend_tracker_pipeline.approve import approved_build, is_complete
 from public_spend_tracker_pipeline.logs import start_logging, stop_logging
 from public_spend_tracker_pipeline.paths import (
     BUILD_MANIFEST_FILE_NAME,
     DATABASE_FILE_NAME,
     new_build_id,
     serving_build_folder,
-    stored_builds,
 )
 from public_spend_tracker_pipeline.settings import DATA_ROOT, WEB_DATA_FOLDER
 from public_spend_tracker_pipeline.transform.base import sql_text
@@ -128,18 +128,15 @@ EXPORT_FILES: tuple[ExportFile, ...] = (
 # --- Choosing the build -----------------------------------------------------
 
 
-def newest_complete_build(data_root: Path = DATA_ROOT) -> str:
-    """The ID of the newest build that finished (it has a build manifest)."""
-    complete = [
-        build_id for build_id in stored_builds(data_root) if _is_complete(build_id, data_root)
-    ]
-    if not complete:
-        raise ExportError("There is no complete build yet. Run: uv run pst build")
-    return complete[-1]
-
-
-def _is_complete(build_id: str, data_root: Path) -> bool:
-    return (serving_build_folder(build_id, data_root) / BUILD_MANIFEST_FILE_NAME).is_file()
+def build_to_export(data_root: Path = DATA_ROOT) -> str:
+    """The approved build: the one the site should show."""
+    build_id = approved_build(data_root)
+    if build_id is None:
+        raise ExportError(
+            "No build is approved yet. Run: uv run pst approve "
+            "(or export a particular build with --build)"
+        )
+    return build_id
 
 
 # --- Exporting --------------------------------------------------------------
@@ -152,7 +149,7 @@ def run_export(
 
     Returns how many rows went into each file.
     """
-    if not _is_complete(build_id, data_root):
+    if not is_complete(build_id, data_root):
         raise ExportError(
             f"Build {build_id} is not complete (it has no {BUILD_MANIFEST_FILE_NAME})"
         )
@@ -233,10 +230,10 @@ def export_site(
     build_id: str | None = None,
     destination: Path = WEB_DATA_FOLDER,
 ) -> int:
-    """Export a build (the newest complete one by default). Returns 0 if it worked, 1 if not."""
+    """Export a build (the approved one by default). Returns 0 if it worked, 1 if not."""
     log_path = start_logging("export", new_build_id(), data_root)
     try:
-        run_export(build_id or newest_complete_build(data_root), destination, data_root)
+        run_export(build_id or build_to_export(data_root), destination, data_root)
     except ExportError as error:
         log.error(f"Export stopped: {error}")
         return 1

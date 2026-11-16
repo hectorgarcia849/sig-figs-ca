@@ -1,0 +1,7 @@
+# Terraform's downloaded providers, and local state if any (state lives in Cloud Storage)
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Your own values (project ID and so on)
+terraform.tfvars

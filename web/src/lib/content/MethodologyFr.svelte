@@ -131,6 +131,20 @@
 	</p>
 </section>
 
+<section>
+	<h2>Licences</h2>
+	<p>
+		Les chiffres de ce site, y compris les fichiers CSV, peuvent être réutilisés selon la licence
+		<!-- Un lien externe, pas une page de ce site. -->
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+		<a href="https://creativecommons.org/licenses/by/4.0/deed.fr"
+			>Creative Commons Attribution 4.0</a
+		>, en citant ce site et Statistique Canada. Le code du site est publié sous la licence MIT. Les
+		données de Statistique Canada sont utilisées selon la Licence du gouvernement ouvert – Canada,
+		comme indiqué ci-dessous.
+	</p>
+</section>
+
 <style>
 	.draft {
 		padding: var(--space-s) var(--space-m);
