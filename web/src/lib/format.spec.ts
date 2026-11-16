@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	fiscalYearLabel,
+	formatChange,
 	formatCount,
 	formatDate,
 	formatDollars,
@@ -51,6 +52,17 @@ describe('other measures', () => {
 		expect(formatMeasure('amount', 92_322_000_000, 'en')).toBe('$92.3B');
 		expect(formatMeasure('amount_real_per_person', 5737.72, 'en')).toBe('$5,738');
 		expect(formatMeasure('percent_of_gdp', 16.48, 'en')).toBe('16.5%');
+	});
+});
+
+describe('changes', () => {
+	it('gives money changes in percent and share of GDP in points, with a sign', () => {
+		expect(formatChange('amount', 4.21, 'en')).toBe('+4.2%');
+		expect(formatChange('amount_per_person', -1.05, 'en')).toBe('-1.1%');
+		expect(formatChange('percent_of_gdp', 0.3, 'en')).toBe('+0.3 percentage points');
+		expect(plain(formatChange('amount', 4.21, 'fr'))).toBe('+4,2 %');
+		expect(plain(formatChange('percent_of_gdp', -0.7, 'fr'))).toBe('-0,7 point de pourcentage');
+		expect(plain(formatChange('percent_of_gdp', 2.4, 'fr'))).toBe('+2,4 points de pourcentage');
 	});
 });
 

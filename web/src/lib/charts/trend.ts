@@ -10,7 +10,7 @@ import { revisionMark } from '#lib/figures.ts';
 import { fiscalYearLabel, formatMeasure } from '#lib/format.ts';
 import type { Language } from '#lib/i18n/index.ts';
 import type { Measure } from '#lib/measures.ts';
-import { LINE_COLOURS } from './draw.ts';
+import { CHART_WIDTH, LINE_COLOURS } from './draw.ts';
 
 const HEIGHT = 320;
 const MARGIN_LEFT = 80; // room for labels such as "$1,137.1B"
@@ -29,7 +29,8 @@ export function trendChart(
 	lines: Line[],
 	years: number[],
 	measure: Measure,
-	lang: Language
+	lang: Language,
+	width = CHART_WIDTH
 ): Plot.PlotOptions {
 	const points: Point[] = lines.flatMap((line) =>
 		years.flatMap((year, index) => {
@@ -51,6 +52,7 @@ export function trendChart(
 	const colour = lines.length > 1 ? 'line' : LINE_COLOURS[0];
 
 	return {
+		width,
 		height: HEIGHT,
 		marginLeft: MARGIN_LEFT,
 		marginRight: MARGIN_RIGHT,

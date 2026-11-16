@@ -7,15 +7,18 @@
  *     Bar    one series at one year (ranking charts)
  */
 import type { CsvValue } from './csv.ts';
-import { fiscalYearLabel, formatMeasure } from './format.ts';
+import { fiscalYearLabel, formatChange, formatMeasure } from './format.ts';
 import { messages, type Language } from './i18n/index.ts';
 import { isInflationAdjusted, type Measure } from './measures.ts';
+import { changeFromYearBefore } from './totals.ts';
 import type { MeasureSeries, RevisionStatus, Source } from './types.ts';
 
 /** A series with the name it is shown under, e.g. "Health" or "Ontario". */
 export interface Line {
 	label: string;
 	series: MeasureSeries;
+	id?: string; // what the line stands for, e.g. function "707" or government "on"
+	highlight?: boolean; // drawn in a different colour on ranking charts
 }
 
 /** One line's figure at one year. */
@@ -24,13 +27,23 @@ export interface Bar {
 	value: number | null;
 	revisionStatus: RevisionStatus;
 	series: MeasureSeries;
+	id?: string;
 	highlight?: boolean; // drawn in a different colour, e.g. the province being viewed
+}
+
+/** One headline figure tile: what it is, the figure, and an optional line under it. */
+export interface KeyFigure {
+	label: string;
+	value: string;
+	mark?: string; // "p" or "r"
+	detail?: string; // e.g. "+4.2% from 2023-24"
+	href?: string; // makes the tile a link (already resolved)
 }
 
 /** A table: column names, then one row per item (its name, then its cells). */
 export interface TableData {
 	columns: string[];
-	rows: { header: string; cells: { text: string; mark?: string }[] }[];
+	rows: { header: string; href?: string; cells: { text: string; mark?: string }[] }[];
 }
 
 /** Each line's figure at one year, largest first. Lines with no figure go last. */
@@ -40,7 +53,9 @@ export function barsAt(lines: Line[], yearIndex: number, measure: Measure): Bar[
 			label: line.label,
 			value: line.series.values[measure][yearIndex],
 			revisionStatus: line.series.revision_status[yearIndex],
-			series: line.series
+			series: line.series,
+			id: line.id,
+			highlight: line.highlight
 		}))
 		.sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
 }
@@ -51,6 +66,55 @@ export function revisionMark(status: RevisionStatus, lang: Language): string | u
 	if (status === 'preliminary') return m.preliminaryMark;
 	if (status === 'revised') return m.revisedMark;
 	return undefined;
+}
+
+// --- Headline figures -------------------------------------------------------
+
+/**
+ * Total, per person and share of GDP for one year, each with its change from
+ * the year before. Totals and per-person figures are in inflation-adjusted
+ * dollars when an inflation-adjusted measure is chosen.
+ */
+export function headlineFigures(
+	total: MeasureSeries,
+	years: number[],
+	yearIndex: number,
+	measure: Measure,
+	lang: Language
+): KeyFigure[] {
+	const m = messages(lang);
+	const real = isInflationAdjusted(measure);
+	const shown: [string, Measure][] = [
+		[m.totalSpending, real ? 'amount_real' : 'amount'],
+		[m.perPerson, real ? 'amount_real_per_person' : 'amount_per_person'],
+		[m.shareOfGdp, 'percent_of_gdp']
+	];
+	return shown.map(([label, each]) => figureTile(label, total, each, years, yearIndex, lang));
+}
+
+/** One tile: a series' figure for one year, and its change from the year before. */
+export function figureTile(
+	label: string,
+	series: MeasureSeries,
+	measure: Measure,
+	years: number[],
+	yearIndex: number,
+	lang: Language
+): KeyFigure {
+	const value = series.values[measure][yearIndex];
+	const change = changeFromYearBefore(series, measure, yearIndex);
+	return {
+		label,
+		value: value === null ? messages(lang).noFigure : formatMeasure(measure, value, lang),
+		mark: revisionMark(series.revision_status[yearIndex], lang),
+		detail:
+			change === null
+				? undefined
+				: messages(lang).changeFrom(
+						formatChange(measure, change, lang),
+						fiscalYearLabel(years[yearIndex - 1], lang)
+					)
+	};
 }
 
 // --- Tables -----------------------------------------------------------------
@@ -86,12 +150,14 @@ export function rankingTable(
 	bars: Bar[],
 	nameColumn: string,
 	measure: Measure,
-	lang: Language
+	lang: Language,
+	linkFor?: (bar: Bar) => string | undefined // a page about each bar, e.g. the function's page
 ): TableData {
 	return {
 		columns: [nameColumn, messages(lang).measures[measure]],
 		rows: bars.map((bar) => ({
 			header: bar.label,
+			href: linkFor?.(bar),
 			cells: [cell(bar.value, bar.revisionStatus, measure, lang)]
 		}))
 	};

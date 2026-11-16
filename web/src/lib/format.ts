@@ -9,7 +9,7 @@
  * Totals stay in billions from $1B up (never trillions), as in federal
  * budget documents, so amounts are easy to compare.
  */
-import { LOCALES, type Language } from './i18n/index.ts';
+import { LOCALES, messages, type Language } from './i18n/index.ts';
 import { isTotalDollars, type Measure } from './measures.ts';
 
 const BILLION = 1_000_000_000;
@@ -79,6 +79,23 @@ export function formatMeasure(
 	if (measure === 'percent_of_gdp') return formatPercent(value, lang, style);
 	if (isTotalDollars(measure)) return formatTotal(value, lang, style);
 	return formatDollars(value, lang);
+}
+
+/**
+ * A change from the year before, with its sign: "+4.2%" for money, or
+ * "+0.3 percentage points" for share of GDP (see totals.changeFromYearBefore).
+ */
+export function formatChange(measure: Measure, change: number, lang: Language): string {
+	const signed = (value: number, style: 'percent' | 'decimal') =>
+		new Intl.NumberFormat(LOCALES[lang], {
+			style,
+			minimumFractionDigits: PERCENT_DECIMALS,
+			maximumFractionDigits: PERCENT_DECIMALS,
+			signDisplay: 'exceptZero'
+		}).format(value);
+	return measure === 'percent_of_gdp'
+		? messages(lang).percentagePoints(signed(change, 'decimal'), change)
+		: signed(change / 100, 'percent');
 }
 
 /** A fiscal year from its start year: 2024 is "2024-25" in English, "2024-2025" in French. */

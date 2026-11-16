@@ -24,7 +24,15 @@
 		<tbody>
 			{#each table.rows as row, index (index)}
 				<tr>
-					<th scope="row">{row.header}</th>
+					<th scope="row">
+						{#if row.href}
+							<!-- Already resolved by whoever made the table. -->
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+							<a href={row.href}>{row.header}</a>
+						{:else}
+							{row.header}
+						{/if}
+					</th>
 					{#each row.cells as cell, cellIndex (cellIndex)}
 						<td
 							>{cell.text}{#if cell.mark}<sup>{cell.mark}</sup>{/if}</td

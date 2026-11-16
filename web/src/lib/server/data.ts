@@ -41,3 +41,17 @@ export const readFunctions = () => readJson<GovernmentFunction[]>('functions.jso
 export const readSpending = () => readJson<SpendingRow[]>('spending.json');
 export const readMunicipalTransfers = () =>
 	readJson<MunicipalTransferRow[]>('municipal_transfers.json');
+
+/** The IDs of the 10 functions ("701" to "710"), in order. */
+export function functionIds(): string[] {
+	return readFunctions()
+		.filter((each) => each.level === 1)
+		.map((each) => each.function_id);
+}
+
+/** The IDs of one function's sub-functions. */
+export function subFunctionIds(functionId: string): string[] {
+	return readFunctions()
+		.filter((each) => each.parent_id === functionId)
+		.map((each) => each.function_id);
+}

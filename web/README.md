@@ -57,14 +57,19 @@ src/
     governments.ts         the government pages: "federal", then each province and territory
     measures.ts            the five measures (dollars, inflation-adjusted, per person, ...)
     format.ts              numbers, years and dates in Canadian English and French
-    figures.ts             lines and bars, and the tables, notes and CSV made from them
+    figures.ts             lines and bars, key figures, and the tables, notes and CSV made from them
+    totals.ts              adding series together (e.g. 10 functions into a total), year-on-year change
+    titles.ts              chart titles that state the main point (facts only, never judgments)
+    names.ts               names of governments and functions in the page's language
     csv.ts                 writing and downloading CSV files
     choices.svelte.ts      switch settings kept while browsing from page to page
     charts/                trend and ranking charts (Observable Plot)
     i18n/                  interface text (en.ts, fr.ts) and language helpers
     server/data.ts         reads web/data/ at build time
     server/series.ts       turns exported rows into series
+    components/            KeyFigures; SpendingOverview (key figures and charts for one government)
     components/charts/     ChartFigure, Chart, DataTable
+    content/               long text, one file per language (the methodology)
     components/controls/   the switches: measure, year, and any choice of a few
   routes/
     +page.svelte           /  the bilingual welcome page
