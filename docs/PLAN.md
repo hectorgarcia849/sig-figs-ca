@@ -59,6 +59,13 @@ so each dollar is counted once. For example, housing support: federal $5.1B
 plus province-wide $10.8B, but Canada combined is $10.8B, because the federal
 amount was transferred to provinces and cities that spent it.
 
+Federal figures can be shown **including or excluding transfers to other
+governments** (one switch on federal pages). Excluding them is worked out per
+function as federal − (Canada combined − all provinces combined): $519.7B
+including and $379.4B excluding in 2024-25. It works for the 10 functions but
+gives negative figures below that, so federal sub-functions are shown including
+transfers only. The provincial-government view has no "excluding" figure yet.
+
 ## Data findings (checked 2026-11-12)
 
 - **Years:** fiscal 2008-09 to 2024-25. Statistics Canada's year "2024" means
@@ -174,7 +181,8 @@ GET /api/v1/functions       COFOG tree with sub-function availability
 GET /api/v1/spending        ?gov= &function= &level=1|2 &from= &to=
                             &measure=nominal|real|per_capita|real_per_capita|pct_gdp
                             &counting=federal|province_wide|provincial_government|canada
-                            &context=fiscal|calendar &format=json|csv
+                            &context=fiscal|calendar &transfers=included|excluded
+                            &format=json|csv
 GET /api/v1/context         ?gov= &series=population,cpi,gdp
 GET /api/v1/sources/{id}    source table, release, link, checksum
 ```

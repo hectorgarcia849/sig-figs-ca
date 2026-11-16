@@ -26,9 +26,17 @@
 -- The base year is the newest fiscal year with spending (2024 means 2024-25),
 -- so real dollars read as "in today's dollars".
 --
--- Each spending row appears twice, once per context basis:
+-- Each spending row appears once per context basis:
 --     fiscal    population, prices and GDP for the fiscal year (April to March)
 --     calendar  the same for the calendar year the fiscal year starts in
+--
+-- and once per transfers choice:
+--     included  amounts as each view reports them
+--     excluded  less transfers_to_governments: money handed to other governments
+--               to spend. Only rows where that is known: federal functions, and
+--               the consolidated views (canada, province_wide), where it is 0.
+--               Federal sub-functions and provincial_government have no
+--               "excluded" rows.
 --
 -- Federal and Canada-combined figures use Canada's context ("ca"). So does
 -- "all provinces combined", which is "ca" in the province-wide view.
@@ -75,26 +83,50 @@ LEFT JOIN side_by_side AS base_year_prices
    AND base_year_prices.year = base.base_year;
 
 
--- Spending in every measure: each spending row twice, once per context basis.
+-- Spending in every measure: each spending row once per context basis and
+-- transfers choice. transfers_to_governments is shown on every row, so a page
+-- can say "of which $55.0B was transferred to other governments".
 CREATE OR REPLACE VIEW spending_measures AS
+WITH counted AS (
+    SELECT
+        s.view,
+        s.jurisdiction,
+        s.function_id,
+        s.fiscal_year,
+        choice.transfers,
+        CASE choice.transfers
+            WHEN 'excluded' THEN s.amount - s.transfers_to_governments
+            ELSE s.amount
+        END AS amount,
+        s.transfers_to_governments,
+        s.revision_status,
+        s.release,
+        s.source_id,
+        s.vector
+    FROM spending AS s
+    CROSS JOIN (VALUES ('included'), ('excluded')) AS choice(transfers)
+    WHERE choice.transfers = 'included' OR s.transfers_to_governments IS NOT NULL
+)
 SELECT
     s.view,
     s.jurisdiction,
     s.function_id,
     s.fiscal_year,
     bases.basis AS context_basis,
+    s.transfers,
     s.amount,
     s.amount * c.price_factor AS amount_real,
     s.amount / c.population AS amount_per_person,
     s.amount * c.price_factor / c.population AS amount_real_per_person,
     s.amount / c.gdp * 100 AS percent_of_gdp,
+    s.transfers_to_governments,
     (SELECT max(fiscal_year) FROM spending) AS base_year,
     c.gdp_method,
     s.revision_status,
     s.release,
     s.source_id,
     s.vector
-FROM spending AS s
+FROM counted AS s
 CROSS JOIN (VALUES ('fiscal'), ('calendar')) AS bases(basis)
 LEFT JOIN context_by_year AS c
     ON c.jurisdiction = s.jurisdiction

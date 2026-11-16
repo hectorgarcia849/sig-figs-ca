@@ -246,6 +246,74 @@ def test_missing_jurisdiction_fails_the_coverage_check(db):
     ]
 
 
+# --- Transfers to other governments -----------------------------------------
+
+
+def test_federal_transfers_are_worked_out_for_functions_only(db):
+    make_staged_tables(db)
+    # Canada combined health becomes 160 (millions) while all provinces stay at
+    # 100, so of its 100 the federal government spent 60 itself and transferred 40.
+    db.sql("""
+        UPDATE cofog_consolidated SET value = value * 1.6
+        WHERE component_en = 'Consolidated Canadian general government'
+          AND function_code LIKE '707%'
+    """)
+    results = run(db, [Jurisdictions(), Functions(), Spending()])
+    assert failed(results["spending"]) == []
+    rows = db.sql("""
+        SELECT function_id, amount, transfers_to_governments FROM spending
+        WHERE view = 'federal' AND fiscal_year = 2024 AND function_id LIKE '707%'
+        ORDER BY function_id
+    """).fetchall()
+    assert rows == [
+        ("707", 100_000_000, 40_000_000),
+        ("7071", 30_000_000, None),  # sub-functions: not worked out
+        ("7072", 70_000_000, None),
+    ]
+
+
+def test_consolidated_views_have_no_transfers_left_and_others_are_unknown(built):
+    rows = built.sql("""
+        SELECT view,
+               count(*) FILTER (WHERE transfers_to_governments = 0) AS zero,
+               count(*) FILTER (WHERE transfers_to_governments IS NULL) AS unknown,
+               count(*) AS rows
+        FROM spending WHERE view <> 'federal' GROUP BY view ORDER BY view
+    """).fetchall()
+    assert rows == [
+        ("canada", 60, 0, 60),
+        ("province_wide", 840, 0, 840),
+        ("provincial_government", 0, 260, 260),
+    ]
+
+
+def test_transfers_larger_than_the_amount_fail_their_check(db):
+    make_staged_tables(db)
+    # Canada combined below all provinces combined: federal transfers would be
+    # 100 - (50 - 100) = 150, more than the federal amount of 100.
+    db.sql("""
+        UPDATE cofog_consolidated SET value = value * 0.5
+        WHERE component_en = 'Consolidated Canadian general government'
+          AND function_code LIKE '703%'
+    """)
+    results = run(db, [Jurisdictions(), Functions(), Spending()])
+    assert failed(results["spending"]) == [
+        "spending: federal transfers to other governments are between 0 and the amount"
+    ]
+
+
+def test_rows_behind_transfers_with_different_statuses_fail_their_check(db):
+    make_staged_tables(db)
+    db.sql("""
+        UPDATE cofog_consolidated SET symbol = 'r'
+        WHERE component_en = 'Consolidated Canadian general government' AND ref_date = '2024'
+    """)
+    results = run(db, [Jurisdictions(), Functions(), Spending()])
+    assert failed(results["spending"]) == [
+        "spending: the rows behind federal transfers share a release and status"
+    ]
+
+
 # --- Municipal transfers ----------------------------------------------------
 
 

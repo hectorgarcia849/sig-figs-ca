@@ -17,10 +17,11 @@ RELEASE = date(2025, 11, 27)
 BUILT_AT = datetime(2026, 11, 15, 15, 30, tzinfo=UTC)
 
 SPENDING = [
-    # view, jurisdiction, function_id, fiscal_year, amount
-    ("federal", "ca", "701", 2023, 1000),
-    ("federal", "ca", "701", 2024, 2000),
-    ("province_wide", "on", "701", 2024, 500),
+    # view, jurisdiction, function_id, fiscal_year, amount, transfers_to_governments
+    ("federal", "ca", "701", 2023, 1000, 600),
+    ("federal", "ca", "701", 2024, 2000, 1500),
+    ("federal", "ca", "7011", 2024, 300, None),  # a sub-function: transfers not known
+    ("province_wide", "on", "701", 2024, 500, 0),  # consolidated: no transfers left
 ]
 
 # CPI by jurisdiction, basis and year: Ontario's prices rose faster than Canada's.
@@ -52,7 +53,8 @@ def make_model_tables(db):
     spending = [(*row, "preliminary", RELEASE, "statcan-10100024", "v1") for row in SPENDING]
     db.sql(f"""CREATE TABLE spending AS {sql_table(
         ["view", "jurisdiction", "function_id", "fiscal_year", "amount",
-         "revision_status", "release", "source_id", "vector"], spending)}""")  # fmt: skip
+         "transfers_to_governments", "revision_status", "release", "source_id", "vector"],
+        spending)}""")  # fmt: skip
 
     transfers = [("on", 2024, 300, "preliminary", RELEASE, "statcan-10100020", "v2")]
     db.sql(f"""CREATE TABLE municipal_transfers AS {sql_table(
@@ -76,13 +78,15 @@ def db():
     return connection
 
 
-def measures(db, view, jurisdiction, year, basis):
+def measures(db, view, jurisdiction, year, basis, transfers="included"):
+    """The measures for function 701 in one view, jurisdiction, year, basis and transfers choice."""
     return db.sql(f"""
         SELECT amount, amount_real, amount_per_person, amount_real_per_person,
                percent_of_gdp, base_year, gdp_method
         FROM spending_measures
-        WHERE view = '{view}' AND jurisdiction = '{jurisdiction}'
+        WHERE view = '{view}' AND jurisdiction = '{jurisdiction}' AND function_id = '701'
           AND fiscal_year = {year} AND context_basis = '{basis}'
+          AND transfers = '{transfers}'
     """).fetchall()[0]
 
 
@@ -123,6 +127,33 @@ def test_each_jurisdiction_uses_its_own_context(db):
     assert per_person == pytest.approx(500 / 4)
     assert percent == pytest.approx(500 / 5_000 * 100)
     assert method == "partial"  # passed through, so the site can add a footnote
+
+
+def test_excluding_transfers_takes_them_out_of_every_measure(db):
+    amount, real, per_person, real_per_person, percent, *_ = measures(
+        db, "federal", "ca", 2023, "fiscal", transfers="excluded"
+    )
+    assert amount == 1000 - 600
+    assert real == pytest.approx(400 * 110 / 100)
+    assert per_person == pytest.approx(400 / 10)
+    assert real_per_person == pytest.approx(440 / 10)
+    assert percent == pytest.approx(400 / 10_000 * 100)
+
+
+def test_only_rows_with_a_known_transfer_figure_can_exclude_it(db):
+    rows = db.sql("""
+        SELECT view, function_id, transfers, amount, transfers_to_governments
+        FROM spending_measures
+        WHERE fiscal_year = 2024 AND context_basis = 'fiscal'
+        ORDER BY view, function_id, transfers
+    """).fetchall()
+    assert rows == [
+        ("federal", "701", "excluded", 500, 1500),
+        ("federal", "701", "included", 2000, 1500),
+        ("federal", "7011", "included", 300, None),  # no "excluded" row
+        ("province_wide", "701", "excluded", 500, 0),  # the same either way
+        ("province_wide", "701", "included", 500, 0),
+    ]
 
 
 def test_municipal_transfers_get_the_same_measures(db):
