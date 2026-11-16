@@ -33,3 +33,7 @@ update:
 # Show downloads, builds and the approved build (changes nothing)
 status:
     uv run pst status
+
+# Write the newest complete build's figures as JSON for the site (web/data/)
+export:
+    uv run pst export

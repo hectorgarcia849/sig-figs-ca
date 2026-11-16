@@ -4,12 +4,16 @@
     pst build     build and check the database from everything downloaded
     pst update    extract, then build: the everyday command
     pst status    show downloads, builds and the approved build (changes nothing)
+    pst export    write a build's figures as JSON for the site (web/data/)
 
 Run it from anywhere in the repository with "uv run pst <subcommand>".
 
 Every subcommand accepts --data-root to use another data folder, e.g.
 "pst --data-root /tmp/test build". Without it, the PST_DATA_ROOT environment
 variable is used, and without that, ./data.
+
+export also takes --build (which build; the newest complete one by default)
+and --out (where to write; web/data/ by default).
 
 Exit codes: 0 when everything worked, 1 when anything failed.
 """
@@ -24,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 from public_spend_tracker_pipeline.build import build_everything
+from public_spend_tracker_pipeline.export import export_site
 from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME, run_extract
 from public_spend_tracker_pipeline.paths import (
     BUILD_MANIFEST_FILE_NAME,
@@ -33,7 +38,7 @@ from public_spend_tracker_pipeline.paths import (
     serving_build_folder,
     stored_builds,
 )
-from public_spend_tracker_pipeline.settings import DATA_ROOT, STATCAN_TABLES
+from public_spend_tracker_pipeline.settings import DATA_ROOT, STATCAN_TABLES, WEB_DATA_FOLDER
 from public_spend_tracker_pipeline.transform.model_sources import table_number
 
 # How many builds "pst status" lists, newest first.
@@ -82,6 +87,11 @@ def status(data_root: Path) -> int:
     print()
     print(f"Approved build: {_approved_build(data_root)}")
     return SUCCESS
+
+
+def export(data_root: Path, build: str | None = None, out: Path = WEB_DATA_FOLDER) -> int:
+    """Write a build's figures as JSON for the site (web/data/)."""
+    return export_site(data_root, build, out)
 
 
 # --- What "status" shows ----------------------------------------------------
@@ -137,6 +147,31 @@ def _approved_build(data_root: Path) -> str:
 # --- Reading the command line -----------------------------------------------
 
 
+def _add_export_options(subcommand: argparse.ArgumentParser) -> None:
+    """The options only "pst export" takes."""
+    subcommand.add_argument(
+        "--build",
+        metavar="BUILD_ID",
+        help="the build to export (default: the newest complete build)",
+    )
+    subcommand.add_argument(
+        "--out",
+        type=Path,
+        default=WEB_DATA_FOLDER,
+        help="folder to write the JSON files to (default: web/data)",
+    )
+
+
+# Every subcommand, in the order "pst --help" lists them.
+SUBCOMMANDS = (extract, build, update, status, export)
+
+# Subcommands with options of their own, and the function that adds them.
+SUBCOMMAND_OPTIONS = {export: _add_export_options}
+
+# Options every subcommand shares, which are not passed on as subcommand options.
+SHARED_OPTIONS = ("run", "data_root")
+
+
 def make_parser() -> argparse.ArgumentParser:
     """The pst command line: one subcommand, plus the --data-root option."""
     parser = argparse.ArgumentParser(
@@ -150,17 +185,20 @@ def make_parser() -> argparse.ArgumentParser:
         help="data folder to use (default: PST_DATA_ROOT, or ./data)",
     )
     subcommands = parser.add_subparsers(title="subcommands", required=True, metavar="SUBCOMMAND")
-    for function in (extract, build, update, status):
+    for function in SUBCOMMANDS:
         summary = function.__doc__.splitlines()[0]
         subcommand = subcommands.add_parser(function.__name__, help=summary, description=summary)
         subcommand.set_defaults(run=function)
+        if function in SUBCOMMAND_OPTIONS:
+            SUBCOMMAND_OPTIONS[function](subcommand)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the subcommand given on the command line. Returns its exit code."""
     arguments = make_parser().parse_args(argv)
-    return arguments.run(arguments.data_root)
+    options = {name: value for name, value in vars(arguments).items() if name not in SHARED_OPTIONS}
+    return arguments.run(arguments.data_root, **options)
 
 
 if __name__ == "__main__":

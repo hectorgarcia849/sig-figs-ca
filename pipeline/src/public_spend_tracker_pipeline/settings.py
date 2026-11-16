@@ -25,6 +25,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 # contract between the pipeline and the API and site.
 SERVING_SQL_FILE = REPOSITORY_ROOT / "schema" / "serving.sql"
 
+# Where "pst export" writes the JSON files the site is built from. Generated,
+# so not kept in git.
+WEB_DATA_FOLDER = REPOSITORY_ROOT / "web" / "data"
+
 
 # --- Talking to Statistics Canada -------------------------------------------
 

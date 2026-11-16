@@ -8,7 +8,8 @@ See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 **Status:** step 1 (local pipeline) is complete: downloading, every
 transformer, the database build, the measure views (real dollars, per person,
-share of GDP) and the `pst` command all work. Next: the public site.
+share of GDP) and the `pst` command all work. Step 2 (the public site) has
+started: `pst export` writes the site's data.
 
 ## Setup
 
@@ -28,6 +29,7 @@ just update         # or: uv run pst update     download new releases, then buil
 just status         # or: uv run pst status     what is downloaded and built
 just extract        # or: uv run pst extract    download only
 just build          # or: uv run pst build      build only
+just export         # or: uv run pst export     write the site's data to web/data/
 ```
 
 Downloads land in `data/raw/source=statcan/table=<number>/release=<date>/`;
@@ -39,10 +41,14 @@ result is `data/serving/build=<id>/fiscal.duckdb`, with `build_manifest.json`
 recording how it was made. The database holds the model tables plus the
 measure views defined in [schema/serving.sql](schema/serving.sql).
 
+`export` copies the newest complete build's figures into JSON files in
+`web/data/` (not kept in git), which the site is built from. Pick a build with
+`--build <id>` or another folder with `--out <folder>`.
+
 To use a data folder other than `./data`, pass `--data-root` (e.g.
 `uv run pst --data-root /tmp/test build`) or set `PST_DATA_ROOT`.
 
-Every run of `extract` or `build` writes a log to `data/logs/`. Problems that
+Every run of `extract`, `build` or `export` writes a log to `data/logs/`. Problems that
 need attention start with `SOURCE CHANGED` (Statistics Canada changed a table)
 or `CHECK FAILED`:
 
@@ -67,8 +73,9 @@ schema/serving.sql           the measure views: the contract with the API and si
 pipeline/                    the data pipeline (Python package)
   src/public_spend_tracker_pipeline/
     settings.py              tables and governments we use, folders, connection settings
-    cli.py                   the pst command: extract, build, update, status
+    cli.py                   the pst command: extract, build, update, status, export
     build.py                 runs every step in order, checks, saves the database
+    export.py                writes a build's figures as JSON for the site
     logs.py                  logging to the screen and a log file per run
     serving.py               adds the measure views and build_info, and checks them
     http_client.py           web connections that retry brief server problems

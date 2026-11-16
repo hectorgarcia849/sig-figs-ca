@@ -5,6 +5,7 @@ Extract and build are replaced with stand-ins, so nothing real runs.
 
 import json
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -16,6 +17,7 @@ from public_spend_tracker_pipeline.paths import (
     raw_release_folder,
     serving_build_folder,
 )
+from public_spend_tracker_pipeline.settings import WEB_DATA_FOLDER
 
 
 class StandIns:
@@ -25,6 +27,7 @@ class StandIns:
         self.calls = []
         monkeypatch.setattr(cli, "run_extract", self.stand_in("extract", extract_code))
         monkeypatch.setattr(cli, "build_everything", self.stand_in("build", build_code))
+        monkeypatch.setattr(cli, "export_site", self.export_stand_in)
 
     def stand_in(self, step, code):
         def run(data_root):
@@ -33,13 +36,17 @@ class StandIns:
 
         return run
 
+    def export_stand_in(self, data_root, build_id, destination):
+        self.calls.append(("export", data_root, build_id, destination))
+        return 0
+
 
 def test_help_lists_every_subcommand(capsys):
     with pytest.raises(SystemExit) as exit_info:
         cli.main(["--help"])
     assert exit_info.value.code == 0
     help_text = capsys.readouterr().out
-    for subcommand in ("extract", "build", "update", "status"):
+    for subcommand in ("extract", "build", "update", "status", "export"):
         assert subcommand in help_text
 
 
@@ -65,6 +72,19 @@ def test_update_does_not_build_when_a_download_failed(monkeypatch, tmp_path, cap
 def test_failed_build_gives_exit_code_1(monkeypatch, tmp_path):
     StandIns(monkeypatch, build_code=1)
     assert cli.main(["--data-root", str(tmp_path), "build"]) == 1
+
+
+def test_export_defaults_to_the_newest_build_and_web_data(monkeypatch, tmp_path):
+    steps = StandIns(monkeypatch)
+    assert cli.main(["--data-root", str(tmp_path), "export"]) == 0
+    assert steps.calls == [("export", tmp_path, None, WEB_DATA_FOLDER)]
+
+
+def test_export_options_are_passed_on(monkeypatch, tmp_path):
+    steps = StandIns(monkeypatch)
+    arguments = ["--data-root", str(tmp_path), "export", "--build", "20261116-152117"]
+    assert cli.main([*arguments, "--out", "site_data"]) == 0
+    assert steps.calls == [("export", tmp_path, "20261116-152117", Path("site_data"))]
 
 
 # --- status -------------------------------------------------------------------
