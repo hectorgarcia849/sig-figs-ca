@@ -208,7 +208,10 @@ spec so the front end cannot drift from it.
   The federal page is `/en/governments/federal`. `/` is a bilingual welcome
   page with English and Français side by side.
 - Every chart: takeaway title, "view as table", source line, CSV download, units
-  shown, colour-blind-safe palette.
+  shown, colour-blind-safe palette. Charts are drawn into the HTML at build time
+  (Observable Plot with linkedom) and redrawn in the browser when a switch changes.
+- Totals stay in billions from $1B up ("$1,137.1B", never trillions); fiscal
+  years are "2024-25" in English and "2024-2025" in French.
 - Libraries: typed message files for interface text (`en.ts`, `fr.ts`; a
   missing French phrase fails the build), Observable Plot and d3-hierarchy (charts),
   simplified Statistics Canada boundaries (map), plain CSS with Svelte scoped

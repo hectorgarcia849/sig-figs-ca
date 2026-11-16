@@ -29,6 +29,50 @@ export const fr: Messages = {
 	sourceTables: 'Tableaux sources',
 	doi: 'DOI',
 
+	measure: 'Mesure',
+	year: 'Année',
+	counting: 'Calcul',
+	transfers: 'Transferts aux autres gouvernements',
+	measures: {
+		amount: 'Dollars',
+		amount_real: 'Dollars, corrigés de l’inflation',
+		amount_per_person: 'Par personne',
+		amount_real_per_person: 'Par personne, corrigés de l’inflation',
+		percent_of_gdp: 'Part du PIB'
+	},
+	views: {
+		federal: 'Gouvernement fédéral',
+		province_wide: 'Ensemble de la province',
+		provincial_government: 'Gouvernement provincial seulement',
+		canada: 'Ensemble des gouvernements'
+	},
+	transfersChoices: {
+		included: 'Transferts compris',
+		excluded: 'Transferts exclus'
+	},
+	transfersOnlyForFunctions:
+		'L’exclusion des transferts n’est possible que pour les 10 fonctions, pas pour les sous-fonctions.',
+
+	viewAsTable: 'Voir sous forme de tableau',
+	downloadCsv: 'Télécharger le CSV',
+	fiscalYear: 'Exercice',
+	noFigure: 'aucun chiffre',
+	preliminaryMark: 'p',
+	revisedMark: 'r',
+	marksExplained: 'p : chiffre provisoire, r : chiffre révisé',
+	sourcePrefix: 'Source : Statistique Canada,',
+	tableWord: 'tableau',
+	releasedOn: (date: string) => `diffusé le ${date}`,
+	vector: 'Vecteur',
+	sourceTable: 'Tableau de Statistique Canada',
+	revisionStatus: 'Statut de révision',
+	government: 'Gouvernement',
+	function: 'Fonction',
+	inBaseYearDollars: (year: string) =>
+		`En dollars de ${year}, corrigés de l’inflation selon l’indice des prix à la consommation de chaque gouvernement.`,
+	partialGdp: (year: string) =>
+		`La part du PIB pour ${year} est estimée à partir d’une seule année de PIB provincial, l’année suivante n’étant pas encore publiée.`,
+
 	comingSoon: 'Les graphiques et tableaux de cette page arrivent bientôt.',
-	rowsLoaded: (count: string) => `${count} lignes de données chargées pour cette page.`
+	seriesLoaded: (count: string) => `${count} séries de données chargées pour cette page.`
 };

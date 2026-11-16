@@ -1,15 +1,20 @@
 <script lang="ts">
 	// Stands in for a page's charts and tables until they are built, and shows
-	// how many rows of data reached the page (proof the data loading works).
+	// how many data series reached the page (proof the data loading works).
 	import { LOCALES, messages, type Language } from '#lib/i18n/index.ts';
 
-	let { lang, rowCount }: { lang: Language; rowCount: number } = $props();
+	let { lang, seriesCount }: { lang: Language; seriesCount?: number } = $props();
 
 	const m = $derived(messages(lang));
-	const count = $derived(new Intl.NumberFormat(LOCALES[lang]).format(rowCount));
+	const count = $derived(
+		seriesCount === undefined ? '' : new Intl.NumberFormat(LOCALES[lang]).format(seriesCount)
+	);
 </script>
 
-<p class="placeholder">{m.comingSoon} {m.rowsLoaded(count)}</p>
+<p class="placeholder">
+	{m.comingSoon}
+	{#if count}{m.seriesLoaded(count)}{/if}
+</p>
 
 <style>
 	.placeholder {

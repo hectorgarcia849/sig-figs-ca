@@ -87,3 +87,33 @@ export interface MunicipalTransferRow extends Measures {
 	jurisdiction: string;
 	fiscal_year: number;
 }
+
+// --- What pages receive -----------------------------------------------------
+
+/** The five measures, by name. */
+export type MeasureValues = Pick<
+	Measures,
+	'amount' | 'amount_real' | 'amount_per_person' | 'amount_real_per_person' | 'percent_of_gdp'
+>;
+
+/**
+ * One line of figures over time, as pages receive it: every list holds one
+ * entry per fiscal year, in the order of the page's `years` (null where there
+ * is no figure). One series comes from one Statistics Canada vector.
+ */
+export interface MeasureSeries {
+	jurisdiction: string;
+	source_id: string;
+	vector: string;
+	values: { [Name in keyof MeasureValues]: (number | null)[] };
+	revision_status: RevisionStatus[];
+	gdp_method: (Measures['gdp_method'] | null)[];
+}
+
+/** A spending series: one view, jurisdiction, function and transfers choice. */
+export interface SpendingSeries extends MeasureSeries {
+	view: View;
+	function_id: string;
+	transfers: Transfers;
+	transfers_to_governments: (number | null)[];
+}

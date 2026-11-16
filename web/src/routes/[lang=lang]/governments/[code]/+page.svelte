@@ -19,4 +19,4 @@
 </svelte:head>
 
 <h1>{name}</h1>
-<Placeholder lang={data.lang} rowCount={data.rows.length + data.municipalTransfers.length} />
+<Placeholder lang={data.lang} seriesCount={data.series.length + data.municipalTransfers.length} />

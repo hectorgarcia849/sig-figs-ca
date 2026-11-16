@@ -13,7 +13,7 @@
 </svelte:head>
 
 <h1>{m.methodology}</h1>
-<Placeholder lang={data.lang} rowCount={data.sources.length} />
+<Placeholder lang={data.lang} />
 
 <h2>{m.sourceTables}</h2>
 <ul>
