@@ -9,15 +9,17 @@ See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 **Status:** step 1 (local pipeline) is complete: downloading, every
 transformer, the database build, the measure views (real dollars, per person,
 share of GDP) and the `pst` command all work. Step 2 (the public site) has
-started: `pst export` writes the site's data.
+started: `pst export` writes the site's data, and the site skeleton in `web/`
+builds every page in English and French (placeholder content for now).
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/). [just](https://just.systems) is
-optional (`brew install just`); each command is also shown in plain form.
+Requires [uv](https://docs.astral.sh/uv/) and, for the site, Node 24 with
+pnpm (turn it on once with `corepack enable pnpm`). [just](https://just.systems)
+is optional (`brew install just`); each command is also shown in plain form.
 
 ```bash
-just setup          # or: uv sync --all-packages
+just setup          # or: uv sync --all-packages && pnpm --dir web install
 ```
 
 ## Use
@@ -56,11 +58,22 @@ or `CHECK FAILED`:
 grep -rE "SOURCE CHANGED|CHECK FAILED" data/logs/
 ```
 
+## The site
+
+```bash
+just site           # or: uv run pst export && pnpm --dir web build
+just web-preview    # or: pnpm --dir web preview      then open http://localhost:4173
+just web-dev        # or: pnpm --dir web dev          live reload while editing
+```
+
+See [web/README.md](web/README.md) for how the site is put together.
+
 ## Tests and checks
 
 ```bash
 just test           # or: uv run pytest
 just lint           # or: uv run ruff check . && uv run ruff format --check .
+just web-check      # or: pnpm --dir web check && pnpm --dir web lint && pnpm --dir web test
 ```
 
 Tests run offline against a fake Statistics Canada server.
@@ -89,6 +102,7 @@ pipeline/                    the data pipeline (Python package)
     transform/model_context.py   CPI, population and GDP by fiscal and calendar year
     transform/model_sources.py   the source behind every figure, with links
   tests/
+web/                         the public site (SvelteKit); see web/README.md
 justfile                     every project command
 ```
 

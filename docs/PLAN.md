@@ -194,8 +194,9 @@ spec so the front end cannot drift from it.
 
 ### Front end (SvelteKit + TypeScript)
 
-- Pages are pre-built at release with their own data included (about 200
-  pages: ~100 addresses × 2 languages). After loading, controls update charts
+- Pages are pre-built at release with their own data included. `pst export`
+  writes the approved build's figures to `web/data/` as JSON, and each page
+  takes only its own rows at build time. After loading, controls update charts
   instantly in the browser. Only the Compare page calls the API.
 - Pages: Home (Canada combined), Government (×14), Function (×10 and
   sub-functions), Compare, Methodology and sources, About.
@@ -204,9 +205,12 @@ spec so the front end cannot drift from it.
 - Shared controls: measure, year, view, language; calendar-year context values
   behind an advanced toggle.
 - Addresses shared across languages: `/en/governments/on`, `/fr/governments/on`.
+  The federal page is `/en/governments/federal`. `/` is a bilingual welcome
+  page with English and Français side by side.
 - Every chart: takeaway title, "view as table", source line, CSV download, units
   shown, colour-blind-safe palette.
-- Libraries: Paraglide (translation), Observable Plot and d3-hierarchy (charts),
+- Libraries: typed message files for interface text (`en.ts`, `fr.ts`; a
+  missing French phrase fails the build), Observable Plot and d3-hierarchy (charts),
   simplified Statistics Canada boundaries (map), plain CSS with Svelte scoped
   styles and CSS variables.
 - Number formatting follows Canadian English and French conventions

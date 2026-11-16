@@ -1,0 +1,56 @@
+/*
+ * Site-wide styles. Colours, spacing and type are CSS variables so the look
+ * can change in one place (visual identity is still to be decided).
+ * Colours meet WCAG 2.1 AA contrast on the background they are used on.
+ */
+:root {
+	--color-text: #1f2328;
+	--color-muted: #57606a;
+	--color-background: #ffffff;
+	--color-surface: #f6f8fa;
+	--color-border: #d0d7de;
+	--color-accent: #1a5a96;
+	--color-on-accent: #ffffff;
+	--color-focus: #b35900;
+
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+	--space-xs: 0.25rem;
+	--space-s: 0.5rem;
+	--space-m: 1rem;
+	--space-l: 2rem;
+	--space-xl: 3rem;
+
+	--radius: 0.25rem;
+	--page-width: 72rem;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-sans);
+	line-height: 1.5;
+	color: var(--color-text);
+	background: var(--color-background);
+}
+
+a {
+	color: var(--color-accent);
+}
+
+/* A clearly visible outline for keyboard users, on every focusable element. */
+:focus-visible {
+	outline: 3px solid var(--color-focus);
+	outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+	line-height: 1.2;
+}

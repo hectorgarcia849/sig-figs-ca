@@ -5,9 +5,10 @@
 default:
     @just --list
 
-# Install Python and every dependency
+# Install Python, the site's packages and every dependency
 setup:
     uv sync --all-packages
+    pnpm --dir web install
 
 # Run all tests
 test:
@@ -37,3 +38,28 @@ status:
 # Write the newest complete build's figures as JSON for the site (web/data/)
 export:
     uv run pst export
+
+# Install the site's packages (needs pnpm: corepack enable pnpm)
+web-setup:
+    pnpm --dir web install
+
+# Run the site locally with live reload, at http://localhost:5173
+web-dev:
+    pnpm --dir web dev
+
+# Build the site into web/build/ from web/data/ (run "just export" first)
+web-build:
+    pnpm --dir web build
+
+# Serve the built site at http://localhost:4173
+web-preview:
+    pnpm --dir web preview
+
+# Check the site: types, formatting and lint, tests
+web-check:
+    pnpm --dir web check
+    pnpm --dir web lint
+    pnpm --dir web test
+
+# Export the newest build, then build the site
+site: export web-build
