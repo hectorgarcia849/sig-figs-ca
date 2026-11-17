@@ -5,11 +5,11 @@
  * over a year shows its figure (the table under the chart has every figure).
  */
 import * as Plot from '@observablehq/plot';
-import type { Line } from '#lib/figures.ts';
-import { revisionMark } from '#lib/figures.ts';
-import { fiscalYearLabel, formatMeasure } from '#lib/format.ts';
+import type { Line } from './figures.ts';
+import { revisionMark } from './figures.ts';
+import { fiscalYearLabel, formatMeasure } from '#lib/i18n/format.ts';
 import type { Language } from '#lib/i18n/index.ts';
-import type { Measure } from '#lib/measures.ts';
+import type { Measure } from '#lib/model/measures.ts';
 import { CHART_WIDTH, LINE_COLOURS } from './draw.ts';
 
 const HEIGHT = 320;

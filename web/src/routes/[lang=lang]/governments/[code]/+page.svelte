@@ -4,20 +4,20 @@
 	// Federal: a switch for including or excluding transfers to other governments.
 	// Province or territory: a switch between province-wide and provincial
 	// government only; the latter also shows what municipalities received.
-	import { choices } from '#lib/choices.svelte.ts';
+	import { choices } from '#lib/state/choices.svelte.ts';
 	import KeyFigures from '#lib/components/KeyFigures.svelte';
 	import SpendingOverview from '#lib/components/SpendingOverview.svelte';
 	import ChoiceGroup from '#lib/components/controls/ChoiceGroup.svelte';
 	import MeasureChoice from '#lib/components/controls/MeasureChoice.svelte';
 	import Switches from '#lib/components/controls/Switches.svelte';
 	import YearSelect from '#lib/components/controls/YearSelect.svelte';
-	import { figureTile, type KeyFigure } from '#lib/figures.ts';
-	import { formatTotal } from '#lib/format.ts';
-	import { FEDERAL } from '#lib/governments.ts';
+	import { figureTile, type KeyFigure } from '#lib/charts/figures.ts';
+	import { formatTotal } from '#lib/i18n/format.ts';
+	import { FEDERAL } from '#lib/model/governments.ts';
 	import { messages } from '#lib/i18n/index.ts';
-	import { isInflationAdjusted } from '#lib/measures.ts';
-	import { governmentName } from '#lib/names.ts';
-	import { sumSeries } from '#lib/totals.ts';
+	import { isInflationAdjusted } from '#lib/model/measures.ts';
+	import { governmentName } from '#lib/model/names.ts';
+	import { sumSeries } from '#lib/model/totals.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

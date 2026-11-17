@@ -3,11 +3,11 @@
  * figure. One bar can be highlighted (e.g. the province being viewed).
  */
 import * as Plot from '@observablehq/plot';
-import type { Bar } from '#lib/figures.ts';
-import { revisionMark } from '#lib/figures.ts';
-import { formatMeasure } from '#lib/format.ts';
+import type { Bar } from './figures.ts';
+import { revisionMark } from './figures.ts';
+import { formatMeasure } from '#lib/i18n/format.ts';
 import type { Language } from '#lib/i18n/index.ts';
-import type { Measure } from '#lib/measures.ts';
+import type { Measure } from '#lib/model/measures.ts';
 import { BAR_COLOUR, CHART_WIDTH, HIGHLIGHT_COLOUR } from './draw.ts';
 
 const BAR_HEIGHT = 28;

@@ -2,7 +2,7 @@
 	// The figures behind a chart as an accessible table: a heading for each
 	// column and row, numbers lined up on the right, and preliminary (p) and
 	// revised (r) figures marked.
-	import type { TableData } from '#lib/figures.ts';
+	import type { TableData } from '#lib/charts/figures.ts';
 	import { messages, type Language } from '#lib/i18n/index.ts';
 
 	let { table, caption, lang }: { table: TableData; caption: string; lang: Language } = $props();

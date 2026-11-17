@@ -1,16 +1,16 @@
 <script lang="ts">
 	// Home: what all governments in Canada spend, counting each dollar once.
 	import { resolve } from '$app/paths';
-	import { choices } from '#lib/choices.svelte.ts';
+	import { choices } from '#lib/state/choices.svelte.ts';
 	import KeyFigures from '#lib/components/KeyFigures.svelte';
 	import SpendingOverview from '#lib/components/SpendingOverview.svelte';
 	import MeasureChoice from '#lib/components/controls/MeasureChoice.svelte';
 	import Switches from '#lib/components/controls/Switches.svelte';
 	import YearSelect from '#lib/components/controls/YearSelect.svelte';
-	import { figureTile } from '#lib/figures.ts';
-	import { FEDERAL } from '#lib/governments.ts';
+	import { figureTile } from '#lib/charts/figures.ts';
+	import { FEDERAL } from '#lib/model/governments.ts';
 	import { messages } from '#lib/i18n/index.ts';
-	import { sumSeries } from '#lib/totals.ts';
+	import { sumSeries } from '#lib/model/totals.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

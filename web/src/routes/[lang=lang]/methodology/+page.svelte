@@ -2,7 +2,7 @@
 	// Methodology and sources: how the figures are made, then every source table.
 	import MethodologyEn from '#lib/content/MethodologyEn.svelte';
 	import MethodologyFr from '#lib/content/MethodologyFr.svelte';
-	import { formatDate } from '#lib/format.ts';
+	import { formatDate } from '#lib/i18n/format.ts';
 	import { messages } from '#lib/i18n/index.ts';
 	import type { PageProps } from './$types';
 

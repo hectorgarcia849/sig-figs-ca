@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SpendingRow } from '#lib/types.ts';
+import type { SpendingRow } from '#lib/model/types.ts';
 import { fiscalYears, spendingSeries } from './series.ts';
 
 function row(fields: Partial<SpendingRow>): SpendingRow {

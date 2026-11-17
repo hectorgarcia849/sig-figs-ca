@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The year switch: a list of fiscal years, newest first.
-	import { fiscalYearLabel } from '#lib/format.ts';
+	import { fiscalYearLabel } from '#lib/i18n/format.ts';
 	import { messages, type Language } from '#lib/i18n/index.ts';
 
 	let {

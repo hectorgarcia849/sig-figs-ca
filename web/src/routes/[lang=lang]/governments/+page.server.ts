@@ -1,9 +1,9 @@
 // The governments list: each government's total in the latest year.
-import { FEDERAL, provincesAndTerritories } from '#lib/governments.ts';
+import { FEDERAL, provincesAndTerritories } from '#lib/model/governments.ts';
 import { functionIds, readJurisdictions, readSpending } from '#lib/server/data.ts';
 import { spendingSeries } from '#lib/server/series.ts';
-import { sumSeries } from '#lib/totals.ts';
-import type { MeasureSeries } from '#lib/types.ts';
+import { sumSeries } from '#lib/model/totals.ts';
+import type { MeasureSeries } from '#lib/model/types.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent }) => {

@@ -6,11 +6,11 @@
 	//     "View as table" (opens a table of the same figures; works without JavaScript)
 	//     notes, the source line with links, and "Download CSV"
 	import type { Snippet } from 'svelte';
-	import { downloadCsv, type CsvValue } from '#lib/csv.ts';
-	import type { TableData } from '#lib/figures.ts';
-	import { formatDate } from '#lib/format.ts';
+	import { downloadCsv, type CsvValue } from '#lib/charts/csv.ts';
+	import type { TableData } from '#lib/charts/figures.ts';
+	import { formatDate } from '#lib/i18n/format.ts';
 	import { messages, type Language } from '#lib/i18n/index.ts';
-	import type { Source } from '#lib/types.ts';
+	import type { Source } from '#lib/model/types.ts';
 	import DataTable from './DataTable.svelte';
 
 	let {

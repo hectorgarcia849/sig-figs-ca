@@ -22,7 +22,7 @@ receives.
 
 Every chart is one `ChartFigure` block: a title stating the main point, the
 chart, "View as table", notes, the source line and "Download CSV". The chart,
-table, notes and CSV all read the same `Line` or `Bar` list (`src/lib/figures.ts`),
+table, notes and CSV all read the same `Line` or `Bar` list (`src/lib/charts/figures.ts`),
 so they always agree.
 
 Charts are drawn with Observable Plot while the site is built, so they are in
@@ -76,33 +76,53 @@ shows, so anyone can check which data is live.
 
 ## Layout
 
+The files directly in `web/` are configuration that each tool (and editor
+extension) looks for next to `package.json`, so they stay there:
+
+```
+package.json, pnpm-*.yaml  packages and scripts; pnpm settings
+vite.config.ts             SvelteKit: build, security policy, site address; unit tests (vitest)
+tsconfig.json              TypeScript (extends the one SvelteKit generates)
+eslint.config.js           lint rules
+prettier.config.js         formatting (.prettierignore: files it skips)
+firebase.json              hosting rules: headers, caching, clean addresses
+e2e/                       page checks, with their own playwright.config.ts
+
+Not kept in git: data/ (from "pst export"), build/ (the site), .svelte-kit/,
+.firebase/ and .firebaserc (deploy), e2e/test-results/
+```
+
 ```
 src/
   app.html, app.css        page shell; colours and spacing as CSS variables
   hooks.server.ts          sets <html lang> on each built page
-  firebase.json            hosting rules (in web/, not src/): headers, caching, clean addresses
   params.ts                only "en" and "fr" are valid at the start of an address
   lib/
-    types.ts               the shape of each file in web/data/, and of series
-    governments.ts         the government pages: "federal", then each province and territory
-    measures.ts            the five measures (dollars, inflation-adjusted, per person, ...)
-    format.ts              numbers, years and dates in Canadian English and French
-    figures.ts             lines and bars, key figures, and the tables, notes and CSV made from them
-    totals.ts              adding series together (e.g. 10 functions into a total), year-on-year change
-    titles.ts              chart titles that state the main point (facts only, never judgments)
-    names.ts               names of governments and functions in the page's language
-    csv.ts                 writing and downloading CSV files
-    choices.svelte.ts      switch settings kept while browsing from page to page
-    charts/                trend and ranking charts (Observable Plot)
-    i18n/                  interface text (en.ts, fr.ts) and language helpers
-    server/data.ts         reads web/data/ at build time
-    server/series.ts       turns exported rows into series
-    server/pages.ts        every page address, for the sitemap
+    model/                 what the data means (no page code)
+      types.ts             the shape of each file in web/data/, and of series
+      measures.ts          the five measures (dollars, inflation-adjusted, per person, ...)
+      governments.ts       the government pages: "federal", then each province and territory
+      names.ts             names of governments and functions in the page's language
+      totals.ts            adding series together (e.g. 10 functions into a total), year-on-year change
+    charts/                everything a chart block is made of
+      figures.ts           lines and bars, key figures, and the tables, notes and CSV made from them
+      titles.ts            chart titles that state the main point (facts only, never judgments)
+      csv.ts               writing and downloading CSV files
+      draw.ts, trend.ts, ranking.ts   drawing trend and ranking charts (Observable Plot)
+    i18n/
+      en.ts, fr.ts         interface text
+      index.ts             language helpers
+      format.ts            numbers, years and dates in Canadian English and French
+    server/                runs only at build time
+      data.ts              reads web/data/
+      series.ts            turns exported rows into series
+      pages.ts             every page address, for the sitemap
     components/            KeyFigures; SpendingOverview (key figures and charts for one government);
                            LanguageLinks (canonical and hreflang links for search engines)
-    components/charts/     ChartFigure, Chart, DataTable
+      charts/              ChartFigure, Chart, DataTable
+      controls/            the switches: measure, year, and any choice of a few
+    state/choices.svelte.ts   switch settings kept while browsing from page to page
     content/               long text, one file per language (methodology, privacy)
-    components/controls/   the switches: measure, year, and any choice of a few
   routes/
     +page.svelte           /  the bilingual welcome page
     [lang=lang]/           every page in one language: /en/... and /fr/...

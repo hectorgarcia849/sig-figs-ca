@@ -9,12 +9,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4174;
 
+// Paths here are relative to this file (e2e/). Results of failed checks
+// (screenshots, traces) go to e2e/test-results/, which is not kept in git.
 export default defineConfig({
-	testDir: 'e2e',
+	testDir: '.',
+	outputDir: 'test-results',
 	fullyParallel: true,
 	reporter: 'list',
 	use: { baseURL: `http://localhost:${PORT}` },
 	webServer: {
+		cwd: '..',
 		command: `pnpm preview --port ${PORT} --strictPort`,
 		port: PORT,
 		reuseExistingServer: false

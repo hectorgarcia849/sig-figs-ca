@@ -1,10 +1,10 @@
 import { parseHTML } from 'linkedom';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { drawChart } from './charts/draw.ts';
-import { rankingChart } from './charts/ranking.ts';
-import { trendChart } from './charts/trend.ts';
+import { drawChart } from './draw.ts';
+import { rankingChart } from './ranking.ts';
+import { trendChart } from './trend.ts';
 import { barsAt, figuresCsv, measureNotes, trendTable, type Line } from './figures.ts';
-import type { MeasureSeries, Source } from './types.ts';
+import type { MeasureSeries, Source } from '#lib/model/types.ts';
 
 const YEARS = [2022, 2023, 2024];
 

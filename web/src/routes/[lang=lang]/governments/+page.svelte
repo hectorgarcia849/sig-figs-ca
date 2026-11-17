@@ -3,10 +3,10 @@
 	// its total, per person and share of GDP in the latest year.
 	import { resolve } from '$app/paths';
 	import DataTable from '#lib/components/charts/DataTable.svelte';
-	import { revisionMark, type TableData } from '#lib/figures.ts';
-	import { fiscalYearLabel, formatMeasure } from '#lib/format.ts';
+	import { revisionMark, type TableData } from '#lib/charts/figures.ts';
+	import { fiscalYearLabel, formatMeasure } from '#lib/i18n/format.ts';
 	import { messages } from '#lib/i18n/index.ts';
-	import { governmentName } from '#lib/names.ts';
+	import { governmentName } from '#lib/model/names.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

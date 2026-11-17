@@ -7,11 +7,11 @@
  *     Bar    one series at one year (ranking charts)
  */
 import type { CsvValue } from './csv.ts';
-import { fiscalYearLabel, formatChange, formatMeasure } from './format.ts';
-import { messages, type Language } from './i18n/index.ts';
-import { isInflationAdjusted, type Measure } from './measures.ts';
-import { changeFromYearBefore } from './totals.ts';
-import type { MeasureSeries, RevisionStatus, Source } from './types.ts';
+import { fiscalYearLabel, formatChange, formatMeasure } from '#lib/i18n/format.ts';
+import { messages, type Language } from '#lib/i18n/index.ts';
+import { isInflationAdjusted, type Measure } from '#lib/model/measures.ts';
+import { changeFromYearBefore } from '#lib/model/totals.ts';
+import type { MeasureSeries, RevisionStatus, Source } from '#lib/model/types.ts';
 
 /** A series with the name it is shown under, e.g. "Health" or "Ontario". */
 export interface Line {

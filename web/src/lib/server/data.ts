@@ -15,7 +15,7 @@ import type {
 	Meta,
 	MunicipalTransferRow,
 	SpendingRow
-} from '#lib/types.ts';
+} from '#lib/model/types.ts';
 
 // web/data. Paths are relative to the web folder, where every site command runs.
 const DATA_FOLDER = path.resolve('data');

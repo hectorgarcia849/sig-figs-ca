@@ -6,14 +6,14 @@
  * year; a series says them once and lists the year-by-year figures. That makes
  * each page's data about five times smaller.
  */
-import type { Measure } from '#lib/measures.ts';
+import type { Measure } from '#lib/model/measures.ts';
 import type {
 	MeasureSeries,
 	Measures,
 	MunicipalTransferRow,
 	SpendingRow,
 	SpendingSeries
-} from '#lib/types.ts';
+} from '#lib/model/types.ts';
 
 /** Every fiscal year from the first to the latest, oldest first: the years every series follows. */
 export function fiscalYears(first: number, latest: number): number[] {

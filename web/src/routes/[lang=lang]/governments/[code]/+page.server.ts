@@ -1,6 +1,6 @@
 // One government's page: the federal government, or a province or territory.
 import { error } from '@sveltejs/kit';
-import { FEDERAL, governmentCodes } from '#lib/governments.ts';
+import { FEDERAL, governmentCodes } from '#lib/model/governments.ts';
 import { LANGUAGES } from '#lib/i18n/index.ts';
 import {
 	functionIds,

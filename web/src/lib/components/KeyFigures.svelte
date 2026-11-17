@@ -1,7 +1,7 @@
 <script lang="ts">
 	// A row of headline figures for the chosen year, e.g. total spending, per
 	// person and share of GDP.
-	import type { KeyFigure } from '#lib/figures.ts';
+	import type { KeyFigure } from '#lib/charts/figures.ts';
 
 	let { figures }: { figures: KeyFigure[] } = $props();
 </script>

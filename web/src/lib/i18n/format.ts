@@ -9,8 +9,8 @@
  * Totals stay in billions from $1B up (never trillions), as in federal
  * budget documents, so amounts are easy to compare.
  */
-import { LOCALES, messages, type Language } from './i18n/index.ts';
-import { isTotalDollars, type Measure } from './measures.ts';
+import { LOCALES, messages, type Language } from './index.ts';
+import { isTotalDollars, type Measure } from '#lib/model/measures.ts';
 
 const BILLION = 1_000_000_000;
 const MILLION = 1_000_000;

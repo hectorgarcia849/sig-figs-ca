@@ -30,5 +30,5 @@ vite.config.ts.timestamp-*
 .firebaserc
 
 # Playwright: results and reports of the page checks
-/test-results
-/playwright-report
+/e2e/test-results
+/e2e/playwright-report

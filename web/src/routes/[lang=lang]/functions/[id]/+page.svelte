@@ -6,7 +6,7 @@
 	//     chart: who delivers it over time (federal own spending + provinces = all)
 	//     chart: its sub-functions, all governments combined
 	import { resolve } from '$app/paths';
-	import { choices } from '#lib/choices.svelte.ts';
+	import { choices } from '#lib/state/choices.svelte.ts';
 	import { rankingChart } from '#lib/charts/ranking.ts';
 	import { trendChart } from '#lib/charts/trend.ts';
 	import Chart from '#lib/components/charts/Chart.svelte';
@@ -24,11 +24,11 @@
 		sourcesOf,
 		trendTable,
 		type Line
-	} from '#lib/figures.ts';
-	import { CANADA } from '#lib/governments.ts';
+	} from '#lib/charts/figures.ts';
+	import { CANADA } from '#lib/model/governments.ts';
 	import { messages } from '#lib/i18n/index.ts';
-	import { functionName, nameInView } from '#lib/names.ts';
-	import { highestPlaceTitle, largestPartTitle, provincesShareTitle } from '#lib/titles.ts';
+	import { functionName, nameInView } from '#lib/model/names.ts';
+	import { highestPlaceTitle, largestPartTitle, provincesShareTitle } from '#lib/charts/titles.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

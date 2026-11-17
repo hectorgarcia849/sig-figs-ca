@@ -4,7 +4,6 @@
 	"private": true,
 	"type": "module",
 	"imports": {
-		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
 	},
 	"scripts": {
@@ -18,7 +17,7 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test --config e2e/playwright.config.ts"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.11.0",

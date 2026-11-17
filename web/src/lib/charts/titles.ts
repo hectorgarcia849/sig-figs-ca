@@ -6,10 +6,10 @@
  * pattern that reads naturally in English and French.
  */
 import type { Bar } from './figures.ts';
-import { fiscalYearLabel, formatMeasure, formatPercent } from './format.ts';
-import { messages, type Language } from './i18n/index.ts';
-import type { Measure } from './measures.ts';
-import type { MeasureSeries } from './types.ts';
+import { fiscalYearLabel, formatMeasure, formatPercent } from '#lib/i18n/format.ts';
+import { messages, type Language } from '#lib/i18n/index.ts';
+import type { Measure } from '#lib/model/measures.ts';
+import type { MeasureSeries } from '#lib/model/types.ts';
 
 /** "Spending per person went from $7,128 in 2008-09 to $12,626 in 2024-25". */
 export function overTimeTitle(

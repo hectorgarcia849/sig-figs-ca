@@ -9,8 +9,8 @@
  * Kept in memory only: a full page load starts again from the defaults.
  * Only changed by the visitor in the browser, never while pages are built.
  */
-import type { Measure } from './measures.ts';
-import type { Transfers, View } from './types.ts';
+import type { Measure } from '#lib/model/measures.ts';
+import type { Transfers, View } from '#lib/model/types.ts';
 
 export interface Choices {
 	measure?: Measure;

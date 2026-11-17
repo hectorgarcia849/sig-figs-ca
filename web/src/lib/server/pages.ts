@@ -3,7 +3,7 @@
  *
  * Each address is built for both languages: /en/... and /fr/...
  */
-import { governmentCodes } from '#lib/governments.ts';
+import { governmentCodes } from '#lib/model/governments.ts';
 import { LANGUAGES, type Language } from '#lib/i18n/index.ts';
 import { functionIds, readJurisdictions } from './data.ts';
 

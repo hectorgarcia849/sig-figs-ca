@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The measure switch: dollars, adjusted for inflation, per person, share of GDP.
 	import { messages, type Language } from '#lib/i18n/index.ts';
-	import { MEASURES, type Measure } from '#lib/measures.ts';
+	import { MEASURES, type Measure } from '#lib/model/measures.ts';
 	import ChoiceGroup from './ChoiceGroup.svelte';
 
 	let {

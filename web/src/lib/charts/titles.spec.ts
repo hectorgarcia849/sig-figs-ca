@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Bar } from './figures.ts';
 import { highestPlaceTitle, largestTitle, overTimeTitle, provincesShareTitle } from './titles.ts';
-import type { MeasureSeries } from './types.ts';
+import type { MeasureSeries } from '#lib/model/types.ts';
 
 function series(amounts: (number | null)[]): MeasureSeries {
 	return {

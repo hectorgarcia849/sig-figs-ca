@@ -26,13 +26,13 @@
 		trendTable,
 		type KeyFigure,
 		type Line
-	} from '#lib/figures.ts';
+	} from '#lib/charts/figures.ts';
 	import { messages, type Language } from '#lib/i18n/index.ts';
-	import type { Measure } from '#lib/measures.ts';
-	import { functionName } from '#lib/names.ts';
-	import { largestPartTitle, largestTitle, overTimeTitle } from '#lib/titles.ts';
-	import { sumSeries } from '#lib/totals.ts';
-	import type { GovernmentFunction, Source, SpendingSeries } from '#lib/types.ts';
+	import type { Measure } from '#lib/model/measures.ts';
+	import { functionName } from '#lib/model/names.ts';
+	import { largestPartTitle, largestTitle, overTimeTitle } from '#lib/charts/titles.ts';
+	import { sumSeries } from '#lib/model/totals.ts';
+	import type { GovernmentFunction, Source, SpendingSeries } from '#lib/model/types.ts';
 
 	let {
 		lang,

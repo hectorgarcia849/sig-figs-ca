@@ -6,7 +6,7 @@
  * "canada" view but all provinces and territories in the province-wide view.
  */
 import { FEDERAL } from './governments.ts';
-import { localName, messages, type Language } from './i18n/index.ts';
+import { localName, messages, type Language } from '#lib/i18n/index.ts';
 import type { GovernmentFunction, Jurisdiction, View } from './types.ts';
 
 /** A function's name, e.g. "Health" or "Santé". */
