@@ -27,7 +27,7 @@ from collections.abc import Callable
 
 import httpx
 
-from public_spend_tracker_pipeline.settings import (
+from public_spend_tracker_pipeline.common.settings import (
     HTTP_MAX_ATTEMPTS,
     HTTP_RETRY_WAIT_SECONDS,
     HTTP_TIMEOUT_SECONDS,

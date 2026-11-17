@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime
 import duckdb
 import pytest
 
-from public_spend_tracker_pipeline.serving import Serving
+from public_spend_tracker_pipeline.build.serving import Serving
 from public_spend_tracker_pipeline.transform.base import sql_table
 
 RELEASE = date(2025, 11, 27)

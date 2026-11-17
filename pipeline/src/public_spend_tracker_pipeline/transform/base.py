@@ -12,7 +12,7 @@ and has two methods:
     transform(db)  builds the dataset and returns it (required)
     checks(db)     proves the dataset is right (optional)
 
-A transformer never deals with file paths. The runner (build.py) does that:
+A transformer never deals with file paths. The runner (build/run.py) does that:
 
     1. Makes each input available in DuckDB as a table with the same name,
        so transform() can simply say "FROM cofog_consolidated". A staged

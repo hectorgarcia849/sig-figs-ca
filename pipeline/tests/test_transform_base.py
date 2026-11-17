@@ -7,7 +7,7 @@ files are read or written.
 import duckdb
 import pytest
 
-from public_spend_tracker_pipeline.paths import MODEL
+from public_spend_tracker_pipeline.common.paths import MODEL
 from public_spend_tracker_pipeline.transform.base import (
     Transformer,
     expect_no_rows,

@@ -11,6 +11,8 @@ import json
 import httpx
 import pytest
 
+from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME, raw_table_folder
+from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatCanTable
 from public_spend_tracker_pipeline.extract.statcan import (
     METADATA_FILE_NAME,
     SOURCE_NAME,
@@ -18,8 +20,6 @@ from public_spend_tracker_pipeline.extract.statcan import (
     extract_all,
     extract_table,
 )
-from public_spend_tracker_pipeline.paths import MANIFEST_FILE_NAME, raw_table_folder
-from public_spend_tracker_pipeline.settings import ENGLISH, FRENCH, StatCanTable
 
 TABLE = StatCanTable(
     product_id="10100005",

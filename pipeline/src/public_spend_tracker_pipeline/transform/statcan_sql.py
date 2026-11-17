@@ -5,7 +5,7 @@ rule (which release to use, how to read a year, how to write a value in full)
 is written once and reads the same everywhere.
 """
 
-from public_spend_tracker_pipeline.settings import STATCAN_TABLES
+from public_spend_tracker_pipeline.common.settings import STATCAN_TABLES
 from public_spend_tracker_pipeline.transform.base import sql_text
 
 # What each of Statistics Canada's "scalar factors" means: the published value

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import duckdb
 
-from public_spend_tracker_pipeline.settings import SERVING_SQL_FILE
+from public_spend_tracker_pipeline.common.settings import SERVING_SQL_FILE
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
     expect_no_rows,

@@ -3,7 +3,7 @@
 import logging
 import re
 
-from public_spend_tracker_pipeline.logs import OUR_HANDLER, start_logging, stop_logging
+from public_spend_tracker_pipeline.common.logs import OUR_HANDLER, start_logging, stop_logging
 
 # e.g. "2026-11-15 15:30:01 UTC INFO    test_logs       hello"
 LINE_PATTERN = re.compile(r"^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC (\w+)\s+(\w+)\s+(.*)$")

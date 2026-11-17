@@ -15,8 +15,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from public_spend_tracker_pipeline.paths import MANIFEST_FILE_NAME
-from public_spend_tracker_pipeline.settings import ENGLISH, FRENCH, StatCanTable
+from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME
+from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatCanTable
 from public_spend_tracker_pipeline.transform.base import CheckResult
 from public_spend_tracker_pipeline.transform.staged_statcan import (
     SourceChangedError,

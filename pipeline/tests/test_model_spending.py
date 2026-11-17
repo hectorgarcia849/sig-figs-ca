@@ -11,7 +11,7 @@ from datetime import date
 import duckdb
 import pytest
 
-from public_spend_tracker_pipeline.settings import JURISDICTIONS
+from public_spend_tracker_pipeline.common.settings import JURISDICTIONS
 from public_spend_tracker_pipeline.transform.base import CheckResult, Transformer, sql_text
 from public_spend_tracker_pipeline.transform.model_reference import Functions, Jurisdictions
 from public_spend_tracker_pipeline.transform.model_spending import (

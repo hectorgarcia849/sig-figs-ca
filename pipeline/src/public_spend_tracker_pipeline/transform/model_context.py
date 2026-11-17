@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import duckdb
 
-from public_spend_tracker_pipeline.paths import MODEL
+from public_spend_tracker_pipeline.common.paths import MODEL
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
     Transformer,

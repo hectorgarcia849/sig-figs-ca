@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from public_spend_tracker_pipeline.paths import (
+from public_spend_tracker_pipeline.common.paths import (
     MANIFEST_FILE_NAME,
     complete_releases,
     current_build_file,

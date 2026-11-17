@@ -28,8 +28,8 @@ import sys
 import time
 from pathlib import Path
 
-from public_spend_tracker_pipeline.paths import log_file
-from public_spend_tracker_pipeline.settings import DATA_ROOT
+from public_spend_tracker_pipeline.common.paths import log_file
+from public_spend_tracker_pipeline.common.settings import DATA_ROOT
 
 # Markers that start every message about a problem needing attention.
 SOURCE_CHANGED = "SOURCE CHANGED"

@@ -2,7 +2,7 @@
 
 Run it from the repository root with:
 
-    uv run python -m public_spend_tracker_pipeline.build      (or: just build)
+    uv run python -m public_spend_tracker_pipeline.build.run      (or: just build)
 
 One build:
 
@@ -51,14 +51,14 @@ from pathlib import Path
 
 import duckdb
 
-from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME
-from public_spend_tracker_pipeline.logs import (
+from public_spend_tracker_pipeline.build.serving import Serving
+from public_spend_tracker_pipeline.common.logs import (
     CHECK_FAILED,
     SOURCE_CHANGED,
     start_logging,
     stop_logging,
 )
-from public_spend_tracker_pipeline.paths import (
+from public_spend_tracker_pipeline.common.paths import (
     BUILD_MANIFEST_FILE_NAME,
     DATABASE_FILE_NAME,
     MANIFEST_FILE_NAME,
@@ -71,13 +71,13 @@ from public_spend_tracker_pipeline.paths import (
     serving_build_folder,
     staged_file,
 )
-from public_spend_tracker_pipeline.serving import Serving
-from public_spend_tracker_pipeline.settings import (
+from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
     REPOSITORY_ROOT,
     STATCAN_TABLES,
     StatCanTable,
 )
+from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME
 from public_spend_tracker_pipeline.transform.base import CheckResult, Transformer, sql_text
 from public_spend_tracker_pipeline.transform.model_context import Context
 from public_spend_tracker_pipeline.transform.model_reference import Functions, Jurisdictions

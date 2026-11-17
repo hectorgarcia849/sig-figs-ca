@@ -11,9 +11,10 @@ from datetime import date
 import duckdb
 import pytest
 
-from public_spend_tracker_pipeline.build import BuildError, file_sha256, run_build
-from public_spend_tracker_pipeline.logs import start_logging, stop_logging
-from public_spend_tracker_pipeline.paths import (
+from public_spend_tracker_pipeline.build.run import BuildError, file_sha256, run_build
+from public_spend_tracker_pipeline.build.serving import Serving
+from public_spend_tracker_pipeline.common.logs import start_logging, stop_logging
+from public_spend_tracker_pipeline.common.paths import (
     BUILD_MANIFEST_FILE_NAME,
     BUILD_WORK_FOLDER_PREFIX,
     DATABASE_FILE_NAME,
@@ -21,7 +22,6 @@ from public_spend_tracker_pipeline.paths import (
     SERVING,
     STAGED,
 )
-from public_spend_tracker_pipeline.serving import Serving
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
     Transformer,

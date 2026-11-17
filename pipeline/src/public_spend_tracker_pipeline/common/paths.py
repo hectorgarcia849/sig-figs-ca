@@ -28,7 +28,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from public_spend_tracker_pipeline.settings import DATA_ROOT
+from public_spend_tracker_pipeline.common.settings import DATA_ROOT
 
 # --- The four stages --------------------------------------------------------
 

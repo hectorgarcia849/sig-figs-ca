@@ -33,15 +33,15 @@ from pathlib import Path
 
 import duckdb
 
-from public_spend_tracker_pipeline.approve import approved_build, is_complete
-from public_spend_tracker_pipeline.logs import start_logging, stop_logging
-from public_spend_tracker_pipeline.paths import (
+from public_spend_tracker_pipeline.common.logs import start_logging, stop_logging
+from public_spend_tracker_pipeline.common.paths import (
     BUILD_MANIFEST_FILE_NAME,
     DATABASE_FILE_NAME,
     new_build_id,
     serving_build_folder,
 )
-from public_spend_tracker_pipeline.settings import DATA_ROOT, WEB_DATA_FOLDER
+from public_spend_tracker_pipeline.common.settings import DATA_ROOT, WEB_DATA_FOLDER
+from public_spend_tracker_pipeline.release.approve import approved_build, is_complete
 from public_spend_tracker_pipeline.transform.base import sql_text
 
 log = logging.getLogger(__name__)

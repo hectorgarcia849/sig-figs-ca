@@ -5,17 +5,17 @@ from datetime import UTC, datetime
 
 import pytest
 
-from public_spend_tracker_pipeline.approve import (
+from public_spend_tracker_pipeline.common.paths import (
+    BUILD_MANIFEST_FILE_NAME,
+    current_build_file,
+    serving_build_folder,
+)
+from public_spend_tracker_pipeline.release.approve import (
     ApprovalError,
     approve,
     approve_build,
     approved_build,
     newest_complete_build,
-)
-from public_spend_tracker_pipeline.paths import (
-    BUILD_MANIFEST_FILE_NAME,
-    current_build_file,
-    serving_build_folder,
 )
 
 OLDER = "20261115-070145"

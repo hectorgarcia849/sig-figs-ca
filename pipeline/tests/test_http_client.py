@@ -8,7 +8,7 @@ on. Waits are only recorded, never slept, so the tests run instantly.
 import httpx
 import pytest
 
-from public_spend_tracker_pipeline.http_client import RetryingTransport
+from public_spend_tracker_pipeline.common.http_client import RetryingTransport
 
 TEST_URL = "https://example.test/data"
 

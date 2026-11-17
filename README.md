@@ -100,15 +100,11 @@ docs/PLAN.md                 the plan
 schema/serving.sql           the measure views: the contract with the API and site
 pipeline/                    the data pipeline (Python package)
   src/public_spend_tracker_pipeline/
-    settings.py              tables and governments we use, folders, connection settings
     cli.py                   the pst command: extract, build, update, status, approve, export
-    build.py                 runs every step in order, checks, saves the database
-    approve.py               records which build the public site shows
-    export.py                writes a build's figures as JSON for the site
-    logs.py                  logging to the screen and a log file per run
-    serving.py               adds the measure views and build_info, and checks them
-    http_client.py           web connections that retry brief server problems
-    paths.py                 where every data file lives
+    common/settings.py       tables and governments we use, folders, connection settings
+    common/paths.py          where every data file lives
+    common/logs.py           logging to the screen and a log file per run
+    common/http_client.py    web connections that retry brief server problems
     extract/statcan.py       downloads Statistics Canada tables as published
     transform/base.py        what every transformer declares, and shared checks
     transform/staged_statcan.py  cleans each Statistics Canada table into a staged dataset
@@ -117,6 +113,10 @@ pipeline/                    the data pipeline (Python package)
     transform/model_spending.py  spending in the four views, and municipal transfers
     transform/model_context.py   CPI, population and GDP by fiscal and calendar year
     transform/model_sources.py   the source behind every figure, with links
+    build/run.py             runs every step in order, checks, saves the database
+    build/serving.py         adds the measure views and build_info, and checks them
+    release/approve.py       records which build the public site shows
+    release/export.py        writes a build's figures as JSON for the site
   tests/
 web/                         the public site (SvelteKit); see web/README.md
 infra/                       Terraform for Firebase Hosting, and deploy.sh; see infra/README.md

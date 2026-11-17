@@ -10,14 +10,14 @@ from pathlib import Path
 import pytest
 
 from public_spend_tracker_pipeline import cli
-from public_spend_tracker_pipeline.paths import (
+from public_spend_tracker_pipeline.common.paths import (
     BUILD_MANIFEST_FILE_NAME,
     MANIFEST_FILE_NAME,
     current_build_file,
     raw_release_folder,
     serving_build_folder,
 )
-from public_spend_tracker_pipeline.settings import WEB_DATA_FOLDER
+from public_spend_tracker_pipeline.common.settings import WEB_DATA_FOLDER
 
 
 class StandIns:

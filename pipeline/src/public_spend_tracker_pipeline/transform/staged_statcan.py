@@ -53,8 +53,8 @@ from pathlib import Path
 
 import duckdb
 
-from public_spend_tracker_pipeline.paths import MANIFEST_FILE_NAME, STAGED
-from public_spend_tracker_pipeline.settings import ENGLISH, FRENCH, StatCanTable
+from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME, STAGED
+from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatCanTable
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
     Transformer,

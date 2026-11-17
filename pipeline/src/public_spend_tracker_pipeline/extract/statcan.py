@@ -42,15 +42,15 @@ from typing import Literal
 
 import httpx
 
-from public_spend_tracker_pipeline.http_client import open_client
-from public_spend_tracker_pipeline.logs import start_logging, stop_logging
-from public_spend_tracker_pipeline.paths import (
+from public_spend_tracker_pipeline.common.http_client import open_client
+from public_spend_tracker_pipeline.common.logs import start_logging, stop_logging
+from public_spend_tracker_pipeline.common.paths import (
     MANIFEST_FILE_NAME,
     new_build_id,
     raw_release_folder,
     raw_table_folder,
 )
-from public_spend_tracker_pipeline.settings import (
+from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
     STATCAN_API_URL,
     STATCAN_TABLES,
@@ -63,7 +63,7 @@ log = logging.getLogger(__name__)
 SOURCE_NAME = "statcan"
 
 # Statistics Canada's description of the table, saved next to the downloads.
-# (The manifest's file name comes from paths.py, since every extractor shares it.)
+# (The manifest's file name comes from common/paths.py, since every extractor shares it.)
 METADATA_FILE_NAME = "metadata.json"
 
 # Start of the name of the temporary folder used while downloading.

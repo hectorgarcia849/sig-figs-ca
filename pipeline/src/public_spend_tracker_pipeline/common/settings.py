@@ -18,8 +18,8 @@ from pathlib import Path
 DATA_ROOT = Path(os.environ.get("PST_DATA_ROOT", "data"))
 
 # The repository's root folder, found from this file's place in it
-# (pipeline/src/public_spend_tracker_pipeline/settings.py).
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+# (pipeline/src/public_spend_tracker_pipeline/common/settings.py).
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 
 # The SQL file defining the measure views in every build's database: the
 # contract between the pipeline and the API and site.

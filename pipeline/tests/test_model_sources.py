@@ -6,8 +6,8 @@ from datetime import date, datetime
 import duckdb
 import pytest
 
-from public_spend_tracker_pipeline.paths import MANIFEST_FILE_NAME
-from public_spend_tracker_pipeline.settings import ENGLISH, FRENCH, StatCanTable
+from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME
+from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatCanTable
 from public_spend_tracker_pipeline.transform.base import sql_table
 from public_spend_tracker_pipeline.transform.model_sources import Sources, table_number
 
