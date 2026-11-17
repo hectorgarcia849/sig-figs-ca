@@ -5,6 +5,7 @@
 #   site           the Firebase Hosting site (free address: <site_id>.web.app)
 #   custom domain  only when var.custom_domain is set
 #   budget         an email alert if monthly spending passes var.monthly_budget
+#                  (only when var.billing_account is set)
 #
 # The site's files are not uploaded by Terraform: infra/deploy.sh does that
 # with the Firebase command line tool, so each release is a reviewable step.
@@ -64,11 +65,12 @@ resource "google_firebase_hosting_custom_domain" "domain" {
 }
 
 resource "google_billing_budget" "monthly" {
-  # Only when the project is linked to a billing account (Firebase Hosting's
-  # free plan needs none).
-  count = data.google_project.this.billing_account == "" ? 0 : 1
+  # Only when a billing account is given. It is set by hand rather than read
+  # from the project, because reading it needs the Cloud Billing service,
+  # which this setup only switches on.
+  count = var.billing_account == null ? 0 : 1
 
-  billing_account = data.google_project.this.billing_account
+  billing_account = var.billing_account
   display_name    = "public_spend_tracker monthly"
 
   budget_filter {

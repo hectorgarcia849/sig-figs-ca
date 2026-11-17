@@ -9,7 +9,7 @@ its free address, `https://<site_id>.web.app` (`public-spend-tracker` by default
 | File           | What                                                                  |
 | -------------- | --------------------------------------------------------------------- |
 | `main.tf`      | services switched on, Firebase added, the Hosting site, an optional custom domain, a monthly budget alert |
-| `variables.tf` | the settings: project, site name, custom domain, budget amount        |
+| `variables.tf` | the settings: project, site name, custom domain, billing account and budget amount |
 | `outputs.tf`   | the site's name and address (read by `deploy.sh`), DNS records for a custom domain |
 | `versions.tf`  | Terraform and provider versions; state kept in a Cloud Storage bucket |
 
@@ -29,7 +29,9 @@ you own. Sign in once with `gcloud auth application-default login` (and
    ```
 
 2. Copy `terraform.tfvars.example` to `terraform.tfvars` and fill in
-   `project_id` (and `site_id`, if you want a different free address).
+   `project_id`, and `billing_account` for the budget alert (shown by
+   `gcloud billing projects describe <project-id>`). Set `site_id` if you
+   want a different free address.
 
 3. Look at what will be made, then make it:
 

@@ -8,5 +8,9 @@ project_id = "your-project-id"
 # Optional: a domain you own, once you have one.
 # custom_domain = "example.ca"
 
+# For the monthly budget alert: the billing account the project is linked to
+# (gcloud billing projects describe <project-id>). Without it, no alert.
+# billing_account = "012345-6789AB-CDEF01"
+
 # Optional: the monthly alert amount, in your billing account's currency.
 # monthly_budget = 10

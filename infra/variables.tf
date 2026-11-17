@@ -32,6 +32,16 @@ variable "custom_domain" {
   default     = null
 }
 
+variable "billing_account" {
+  description = <<-EOT
+    The billing account the project is linked to, e.g. "012345-6789AB-CDEF01"
+    (see "gcloud billing projects describe <project>"), for the budget alert.
+    Leave it null to have no budget alert.
+  EOT
+  type        = string
+  default     = null
+}
+
 variable "monthly_budget" {
   description = <<-EOT
     A monthly spending amount, in the billing account's currency, that sends an
