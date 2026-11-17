@@ -10,7 +10,7 @@ import type { CsvValue } from './csv.ts';
 import { fiscalYearLabel, formatChange, formatMeasure } from '#lib/i18n/format.ts';
 import { messages, type Language } from '#lib/i18n/index.ts';
 import { isInflationAdjusted, type Measure } from '#lib/model/measures.ts';
-import { changeFromYearBefore } from '#lib/model/totals.ts';
+import { changeBetween, changeFromYearBefore } from '#lib/model/totals.ts';
 import type { MeasureSeries, RevisionStatus, Source } from '#lib/model/types.ts';
 
 /** A series with the name it is shown under, e.g. "Health" or "Ontario". */
@@ -160,6 +160,44 @@ export function rankingTable(
 			href: linkFor?.(bar),
 			cells: [cell(bar.value, bar.revisionStatus, measure, lang)]
 		}))
+	};
+}
+
+/**
+ * Each line's figure in two years and the change between them, in the order
+ * given (e.g. largest first): a percentage for money, percentage points for
+ * share of GDP.
+ */
+export function changeTable(
+	lines: Line[],
+	years: number[],
+	fromIndex: number,
+	toIndex: number,
+	nameColumn: string,
+	measure: Measure,
+	lang: Language
+): TableData {
+	const m = messages(lang);
+	const at = (line: Line, index: number) =>
+		cell(line.series.values[measure][index], line.series.revision_status[index], measure, lang);
+	return {
+		columns: [
+			nameColumn,
+			fiscalYearLabel(years[fromIndex], lang),
+			fiscalYearLabel(years[toIndex], lang),
+			m.comparePage.change
+		],
+		rows: lines.map((line) => {
+			const change = changeBetween(line.series, measure, fromIndex, toIndex);
+			return {
+				header: line.label,
+				cells: [
+					at(line, fromIndex),
+					at(line, toIndex),
+					{ text: change === null ? m.noFigure : formatChange(measure, change, lang) }
+				]
+			};
+		})
 	};
 }
 

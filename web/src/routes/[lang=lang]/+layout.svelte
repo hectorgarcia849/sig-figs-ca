@@ -28,6 +28,15 @@
 	const otherLanguageAddress = $derived(
 		resolve(addressInOtherLanguage(page.url.pathname, data.lang) as Path)
 	);
+	// On Compare, the address's query holds the comparison, so the language
+	// switch keeps it. Read only in the browser: built pages have no query.
+	// (A $derived would read the query while pages are built, which SvelteKit forbids.)
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let query = $state('');
+	$effect(() => {
+		query = page.url.search;
+	});
+
 	const addresses = $derived({
 		[data.lang]: page.url.pathname,
 		[other]: otherLanguageAddress
@@ -36,6 +45,7 @@
 	const sections = $derived([
 		{ label: m.governments, href: resolve('/[lang=lang]/governments', { lang: data.lang }) },
 		{ label: m.functions, href: resolve('/[lang=lang]/functions', { lang: data.lang }) },
+		{ label: m.compare, href: resolve('/[lang=lang]/compare', { lang: data.lang }) },
 		{ label: m.methodology, href: resolve('/[lang=lang]/methodology', { lang: data.lang }) }
 	]);
 </script>
@@ -65,7 +75,9 @@
 				{/each}
 			</ul>
 		</nav>
-		<a lang={other} hreflang={other} href={otherLanguageAddress}>{m.otherLanguageName}</a>
+		<!-- Resolved above, plus the query on Compare. -->
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+		<a lang={other} hreflang={other} href={otherLanguageAddress + query}>{m.otherLanguageName}</a>
 	</div>
 </header>
 

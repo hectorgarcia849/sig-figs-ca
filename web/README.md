@@ -18,6 +18,19 @@ picks out the rows that page needs, and `src/lib/server/series.ts` turns them
 into series (one line of figures over the years each), which is what the page
 receives.
 
+## Compare
+
+Compare is the one page whose figures depend on choices made in the browser
+(which governments, what spending). It is built with total spending's data,
+so the default comparison is in the HTML; other spending loads its data file,
+`/data/compare/<total or function>.json`, made from `web/data/` while the site
+is built (about 40 KB compressed each). There is no server: the files are
+served like the pages.
+
+The choices are kept in the address (`?gov=on,qc&spending=707&measure=...`),
+read when the page opens and rewritten on every change, so copying the
+address shares the comparison, and the language switch keeps it.
+
 ## Charts
 
 Every chart is one `ChartFigure` block: a title stating the main point, the
@@ -103,7 +116,8 @@ src/
       measures.ts          the five measures (dollars, inflation-adjusted, per person, ...)
       governments.ts       the government pages: "federal", then each province and territory
       names.ts             names of governments and functions in the page's language
-      totals.ts            adding series together (e.g. 10 functions into a total), year-on-year change
+      totals.ts            adding series together (e.g. 10 functions into a total), change between years
+      compare.ts           Compare's choices, how they are kept in the address, which series each government uses
     charts/                everything a chart block is made of
       figures.ts           lines and bars, key figures, and the tables, notes and CSV made from them
       titles.ts            chart titles that state the main point (facts only, never judgments)
@@ -117,10 +131,12 @@ src/
       data.ts              reads web/data/
       series.ts            turns exported rows into series
       pages.ts             every page address, for the sitemap
+      compare.ts           Compare's data files: total spending, and one per function
     components/            KeyFigures; SpendingOverview (key figures and charts for one government);
                            LanguageLinks (canonical and hreflang links for search engines)
       charts/              ChartFigure, Chart, DataTable
-      controls/            the switches: measure, year, and any choice of a few
+      controls/            the switches: measure, year, any choice of a few; on Compare, the
+                           government checkboxes and the "spending on" list
     state/choices.svelte.ts   switch settings kept while browsing from page to page
     content/               long text, one file per language (methodology, privacy)
   routes/
@@ -128,10 +144,12 @@ src/
     [lang=lang]/           every page in one language: /en/... and /fr/...
       governments/[code]/  one page per government
       functions/[id]/      one page per function of government
+      compare/             governments side by side; the choices live in the address
       methodology/         methodology, sources and licences
       privacy/             what the site does with visitors' information
     404/                   "page not found" in both languages, built as 404.html
     sitemap.xml/, robots.txt/, build.json/   files built with the site
+    data/compare/[file].json/   Compare's data files (/data/compare/total.json, /707.json, ...)
 ```
 
 Imports from `src/lib` are written `#lib/...` with the file's extension, e.g.

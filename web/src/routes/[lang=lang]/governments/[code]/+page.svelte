@@ -13,6 +13,8 @@
 	import YearSelect from '#lib/components/controls/YearSelect.svelte';
 	import { figureTile, type KeyFigure } from '#lib/charts/figures.ts';
 	import { formatTotal } from '#lib/i18n/format.ts';
+	import { resolve } from '$app/paths';
+	import { governmentsAlongside, startingQuery } from '#lib/model/compare.ts';
 	import { FEDERAL } from '#lib/model/governments.ts';
 	import { messages } from '#lib/i18n/index.ts';
 	import { isInflationAdjusted } from '#lib/model/measures.ts';
@@ -90,6 +92,18 @@
 </svelte:head>
 
 <h1>{name}</h1>
+
+{#if !isFederal}
+	<p class="compare-link">
+		<!-- A resolved address plus the comparison's query. -->
+		<!-- eslint-disable svelte/no-navigation-without-resolve -->
+		<a
+			href={`${resolve('/[lang=lang]/compare', { lang: data.lang })}?${startingQuery({ governments: governmentsAlongside(data.code) })}`}
+			>{m.comparePage.compareWithOthers}</a
+		>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	</p>
+{/if}
 
 <Switches note={viewNote}>
 	{#if isFederal}

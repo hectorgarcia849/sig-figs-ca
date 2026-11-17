@@ -9,7 +9,8 @@ See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 **Status:** step 1 (local pipeline) and step 2 (the public site, in English
 and French) are complete. The site is ready to publish on Firebase Hosting at a
 free web.app address (see [infra/README.md](infra/README.md)); a custom domain
-can be added later. Next: the API and the Compare page.
+can be added later. Step 3's Compare page is built (from data files made with
+the site; the API is deferred until it is needed). Next: step 4, automation.
 
 ## Setup
 

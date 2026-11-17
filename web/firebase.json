@@ -24,7 +24,7 @@
 				"headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
 			},
 			{
-				"source": "{/,/en,/en/**,/fr,/fr/**,/404,/*.json,/*.xml,/*.txt}",
+				"source": "{/,/en,/en/**,/fr,/fr/**,/404,/*.json,/*.xml,/*.txt,/data/**}",
 				"headers": [{ "key": "Cache-Control", "value": "public, max-age=300" }]
 			}
 		]

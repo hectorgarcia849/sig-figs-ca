@@ -145,7 +145,42 @@ export const fr: Messages = {
 		highestPlace: (functionName: string, phrase: string, year: string, place: string) =>
 			`${functionName} ${phrase}, ${year} : premier rang, ${place}`,
 		provincesShare: (functionName: string, year: string, share: string) =>
-			`${functionName}, ${year} : ${share} des dépenses par les provinces et territoires`
+			`${functionName}, ${year} : ${share} des dépenses par les provinces et territoires`,
+		compareOverTime: (name: string, phrase: string, firstYear: string, lastYear: string) =>
+			`${name} ${phrase}, de ${firstYear} à ${lastYear}`
+	},
+	compare: 'Comparer',
+	compareTitle: 'Comparer les gouvernements',
+	compareIntro:
+		"Comparez des gouvernements côte à côte : choisissez-en jusqu'à 7, les dépenses à examiner et une mesure. L'adresse conserve vos choix : la copier permet de partager la comparaison.",
+	comparePage: {
+		governments: 'Gouvernements',
+		groups: {
+			federal: 'Fédéral',
+			provinces: 'Provinces',
+			territories: 'Territoires',
+			combined: 'Ensembles'
+		},
+		limit: (count: number) =>
+			`Jusqu'à ${count} à la fois : désélectionnez-en un pour en choisir un autre.`,
+		spendingOn: 'Dépenses examinées',
+		total: 'Dépenses totales',
+		wholeFunction: (name: string) => `${name} (ensemble)`,
+		provinces: 'Provinces et territoires',
+		provincialGovernmentNote:
+			'Les provinces et territoires sont comptés comme leur gouvernement seul, sans leurs municipalités, hôpitaux, conseils scolaires, universités et collèges.',
+		copyLink: 'Copier le lien vers cette comparaison',
+		linkCopied: 'Lien copié.',
+		copyFailed: "Impossible de copier le lien : copiez plutôt l'adresse dans le navigateur.",
+		loading: 'Chargement des chiffres…',
+		loadFailed:
+			"Les chiffres n'ont pas pu être chargés. Vérifiez votre connexion et rechargez la page.",
+		noneChosen: 'Choisissez au moins un gouvernement à comparer.',
+		noFigures: (names: string) => `Aucun chiffre avec ces choix pour : ${names}.`,
+		changeHeading: (from: string, to: string) => `Variation de ${from} à ${to}`,
+		change: 'Variation',
+		compareGovernments: 'Comparer les gouvernements pour cette fonction',
+		compareWithOthers: "Comparer avec d'autres provinces et territoires"
 	},
 	privacy: 'Confidentialité',
 	notFound: {

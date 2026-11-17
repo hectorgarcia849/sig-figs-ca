@@ -25,6 +25,7 @@
 		trendTable,
 		type Line
 	} from '#lib/charts/figures.ts';
+	import { startingQuery } from '#lib/model/compare.ts';
 	import { CANADA } from '#lib/model/governments.ts';
 	import { messages } from '#lib/i18n/index.ts';
 	import { functionName, nameInView } from '#lib/model/names.ts';
@@ -91,6 +92,15 @@
 
 <h1>{name}</h1>
 <p class="intro">{m.functionIntro}</p>
+<p class="compare-link">
+	<!-- A resolved address plus the comparison's query. -->
+	<!-- eslint-disable svelte/no-navigation-without-resolve -->
+	<a
+		href={`${resolve('/[lang=lang]/compare', { lang: data.lang })}?${startingQuery({ spending: data.id })}`}
+		>{m.comparePage.compareGovernments}</a
+	>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+</p>
 
 <Switches note={m.viewNotes.province_wide}>
 	<MeasureChoice lang={data.lang} value={measure} onchange={(value) => (choices.measure = value)} />

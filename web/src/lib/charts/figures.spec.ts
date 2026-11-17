@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { drawChart } from './draw.ts';
 import { rankingChart } from './ranking.ts';
 import { trendChart } from './trend.ts';
-import { barsAt, figuresCsv, measureNotes, trendTable, type Line } from './figures.ts';
+import { barsAt, changeTable, figuresCsv, measureNotes, trendTable, type Line } from './figures.ts';
 import type { MeasureSeries, Source } from '#lib/model/types.ts';
 
 const YEARS = [2022, 2023, 2024];
@@ -53,6 +53,22 @@ describe('bars and tables', () => {
 			]
 		});
 		expect(table.rows[1].cells[1]).toEqual({ text: 'no figure' });
+	});
+
+	it('writes the change between two years: percent for money, points for share of GDP', () => {
+		const table = changeTable(LINES, YEARS, 0, 2, 'Function', 'amount', 'en');
+		expect(table.columns).toEqual(['Function', '2022-23', '2024-25', 'Change']);
+		expect(table.rows[0]).toEqual({
+			header: 'Health',
+			cells: [{ text: '$80.0B' }, { text: '$92.3B', mark: 'p' }, { text: '+15.4%' }]
+		});
+		const shares = changeTable(LINES, YEARS, 0, 2, 'Function', 'percent_of_gdp', 'en');
+		expect(shares.rows[0].cells[2].text).toBe('0.0 percentage points');
+	});
+
+	it('has no change where a year has no figure', () => {
+		const table = changeTable(LINES, YEARS, 1, 2, 'Function', 'amount', 'en');
+		expect(table.rows[1].cells[2]).toEqual({ text: 'no figure' });
 	});
 });
 

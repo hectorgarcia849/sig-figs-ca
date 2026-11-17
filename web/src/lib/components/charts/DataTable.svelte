@@ -5,7 +5,17 @@
 	import type { TableData } from '#lib/charts/figures.ts';
 	import { messages, type Language } from '#lib/i18n/index.ts';
 
-	let { table, caption, lang }: { table: TableData; caption: string; lang: Language } = $props();
+	let {
+		table,
+		caption,
+		lang,
+		captionShown = true
+	}: {
+		table: TableData;
+		caption: string;
+		lang: Language;
+		captionShown?: boolean; // false when a heading just above already says the same
+	} = $props();
 
 	const m = $derived(messages(lang));
 	const hasMarks = $derived(table.rows.some((row) => row.cells.some((cell) => cell.mark)));
@@ -13,7 +23,7 @@
 
 <div class="scroll">
 	<table>
-		<caption>{caption}</caption>
+		<caption class:hidden={!captionShown}>{caption}</caption>
 		<thead>
 			<tr>
 				{#each table.columns as column, index (index)}
@@ -82,5 +92,15 @@
 	.marks {
 		color: var(--color-muted);
 		font-size: 0.875rem;
+	}
+
+	/* Read by screen readers, not shown. */
+	.hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

@@ -172,7 +172,14 @@ outputs can be regenerated and expire after a set period.
 - Measures (real, per person, share of GDP) are defined once as SQL views
   inside the DuckDB build.
 
-### API (FastAPI on Cloud Run, read-only)
+### API (FastAPI on Cloud Run, read-only) — deferred
+
+Decided 2026-11-16: not built yet. Compare is served by data files built
+with the site (see Front end), which cover it fully with no server. The API
+is built when there is a need the files cannot meet: data too large to ship
+as files (M2 program detail, M5 recipients), outside users who want queries,
+or the paid tier. It then slots in behind the same Compare page. The design
+below stands for when it is built.
 
 ```
 GET /api/v1/meta            build id, releases, years, measures, notes
@@ -197,7 +204,14 @@ spec so the front end cannot drift from it.
 - Pages are pre-built at release with their own data included. `pst export`
   writes the approved build's figures to `web/data/` as JSON, and each page
   takes only its own rows at build time. After loading, controls update charts
-  instantly in the browser. Only the Compare page calls the API.
+  instantly in the browser.
+- **Compare** (governments side by side; up to 7, the number of colours that
+  stay distinct for colour-blind readers) reads data files built with the
+  site: `/data/compare/total.json` and one per function with its
+  sub-functions (about 40 KB compressed each). Its choices live in the
+  address, so a comparison is shared by copying the link. It starts with
+  total spending per person in the four largest provinces. Comparing
+  functions against each other is for later.
 - Pages: Home (Canada combined), Government (×14), Function (×10 and
   sub-functions), Compare, Methodology and sources, About.
 - Province pages switch between **Province-wide** (default) and

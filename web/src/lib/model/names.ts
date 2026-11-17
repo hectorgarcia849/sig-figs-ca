@@ -5,6 +5,7 @@
  * code means something different in a view: "ca" is Canada combined in the
  * "canada" view but all provinces and territories in the province-wide view.
  */
+import { ALL_GOVERNMENTS, ALL_PROVINCES } from './compare.ts';
 import { FEDERAL } from './governments.ts';
 import { localName, messages, type Language } from '#lib/i18n/index.ts';
 import type { GovernmentFunction, Jurisdiction, View } from './types.ts';
@@ -41,5 +42,13 @@ export function nameInView(
 	if (view === 'federal') return m.federalGovernment;
 	if (view === 'canada') return m.allGovernments;
 	if (code === 'ca') return m.allProvinces;
+	return governmentName(jurisdictions, code, lang);
+}
+
+/** A compared government's name: a government, or one of the two combined lines. */
+export function comparedName(jurisdictions: Jurisdiction[], code: string, lang: Language): string {
+	const m = messages(lang);
+	if (code === ALL_PROVINCES) return m.allProvinces;
+	if (code === ALL_GOVERNMENTS) return m.allGovernments;
 	return governmentName(jurisdictions, code, lang);
 }

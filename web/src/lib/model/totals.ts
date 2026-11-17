@@ -59,9 +59,21 @@ export function changeFromYearBefore(
 	measure: Measure,
 	yearIndex: number
 ): number | null {
-	if (yearIndex < 1) return null;
-	const now = series.values[measure][yearIndex];
-	const before = series.values[measure][yearIndex - 1];
+	return yearIndex < 1 ? null : changeBetween(series, measure, yearIndex - 1, yearIndex);
+}
+
+/**
+ * How a figure changed between two years: a percentage change for money, a
+ * change in percentage points for share of GDP. Null if either year is empty.
+ */
+export function changeBetween(
+	series: MeasureSeries,
+	measure: Measure,
+	fromIndex: number,
+	toIndex: number
+): number | null {
+	const now = series.values[measure][toIndex];
+	const before = series.values[measure][fromIndex];
 	if (now === null || before === null || before === 0) return null;
 	return measure === 'percent_of_gdp' ? now - before : ((now - before) / before) * 100;
 }

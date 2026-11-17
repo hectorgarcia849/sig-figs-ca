@@ -15,6 +15,7 @@ export function pageAddresses(lang: Language): string[] {
 		...governmentCodes(readJurisdictions()).map((code) => `/${lang}/governments/${code}`),
 		`/${lang}/functions`,
 		...functionIds().map((id) => `/${lang}/functions/${id}`),
+		`/${lang}/compare`,
 		`/${lang}/methodology`,
 		`/${lang}/privacy`
 	];

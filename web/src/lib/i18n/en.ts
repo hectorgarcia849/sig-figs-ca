@@ -154,7 +154,40 @@ export const en = {
 		highestPlace: (functionName: string, phrase: string, year: string, place: string) =>
 			`${functionName} ${phrase} in ${year}: highest in ${place}`,
 		provincesShare: (functionName: string, year: string, share: string) =>
-			`${functionName} in ${year}: ${share} spent by provinces and territories`
+			`${functionName} in ${year}: ${share} spent by provinces and territories`,
+		compareOverTime: (name: string, phrase: string, firstYear: string, lastYear: string) =>
+			`${name} ${phrase}, ${firstYear} to ${lastYear}`
+	},
+	compare: 'Compare',
+	compareTitle: 'Compare governments',
+	compareIntro:
+		'Put governments side by side: choose up to 7, what spending to look at, and a measure. The address keeps your choices, so copying it shares the comparison.',
+	comparePage: {
+		governments: 'Governments',
+		groups: {
+			federal: 'Federal',
+			provinces: 'Provinces',
+			territories: 'Territories',
+			combined: 'Combined'
+		},
+		limit: (count: number) => `Up to ${count} at once: unselect one to choose another.`,
+		spendingOn: 'Spending on',
+		total: 'Total spending',
+		wholeFunction: (name: string) => `${name} (all)`,
+		provinces: 'Provinces and territories',
+		provincialGovernmentNote:
+			'Provinces and territories are counted as their governments alone, without their municipalities, hospitals, school boards, universities and colleges.',
+		copyLink: 'Copy link to this comparison',
+		linkCopied: 'Link copied.',
+		copyFailed: 'Could not copy the link: copy the address from the browser instead.',
+		loading: 'Loading figures…',
+		loadFailed: 'The figures could not be loaded. Check your connection and reload the page.',
+		noneChosen: 'Choose at least one government to compare.',
+		noFigures: (names: string) => `No figures with these choices for: ${names}.`,
+		changeHeading: (from: string, to: string) => `Change from ${from} to ${to}`,
+		change: 'Change',
+		compareGovernments: 'Compare governments on this function',
+		compareWithOthers: 'Compare with other provinces and territories'
 	},
 	privacy: 'Privacy',
 	notFound: {
