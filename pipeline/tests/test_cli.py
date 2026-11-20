@@ -27,6 +27,7 @@ class StandIns:
         self.calls = []
         monkeypatch.setattr(cli, "reasons_to_build", lambda data_root: list(reasons))
         monkeypatch.setattr(cli, "sync_data", self.sync_stand_in)
+        monkeypatch.setattr(cli, "diff_builds", self.diff_stand_in)
         monkeypatch.setattr(cli, "run_extract", self.stand_in("extract", extract_code))
         monkeypatch.setattr(cli, "build_everything", self.stand_in("build", build_code))
         monkeypatch.setattr(cli, "export_site", self.export_stand_in)
@@ -38,6 +39,10 @@ class StandIns:
             return code
 
         return run
+
+    def diff_stand_in(self, data_root, build_id, against):
+        self.calls.append(("diff", data_root, build_id, against))
+        return 0
 
     def sync_stand_in(self, data_root, direction, bucket, with_approval, dry_run):
         self.calls.append(("sync", data_root, direction, bucket, with_approval, dry_run))
@@ -57,7 +62,7 @@ def test_help_lists_every_subcommand(capsys):
         cli.main(["--help"])
     assert exit_info.value.code == 0
     help_text = capsys.readouterr().out
-    for subcommand in ("extract", "build", "update", "status", "approve", "export", "sync"):
+    for subcommand in ("extract", "build", "update", "status", "diff", "approve", "export", "sync"):
         assert subcommand in help_text
 
 
@@ -78,6 +83,17 @@ def test_update_does_not_build_when_nothing_new_arrived(monkeypatch, tmp_path, c
     assert cli.main(["--data-root", str(tmp_path), "update"]) == 0
     assert steps.calls == [("extract", tmp_path)]
     assert "Nothing new" in capsys.readouterr().out
+
+
+def test_diff_defaults_to_the_newest_build_against_the_approved_one(monkeypatch, tmp_path):
+    steps = StandIns(monkeypatch)
+    root = ["--data-root", str(tmp_path)]
+    assert cli.main([*root, "diff"]) == 0
+    assert cli.main([*root, "diff", "20261126-153000", "--against", "20261116-164845"]) == 0
+    assert steps.calls == [
+        ("diff", tmp_path, None, None),
+        ("diff", tmp_path, "20261126-153000", "20261116-164845"),
+    ]
 
 
 def test_sync_passes_on_its_choices(monkeypatch, tmp_path):

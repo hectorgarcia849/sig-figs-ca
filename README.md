@@ -31,6 +31,7 @@ just update         # or: uv run pst update     download new releases, then buil
 just status         # or: uv run pst status     what is downloaded and built
 just extract        # or: uv run pst extract    download only
 just build          # or: uv run pst build      build only
+just diff           # or: uv run pst diff       what changed since the approved build
 just approve        # or: uv run pst approve    approve the newest build for the public site
 just export         # or: uv run pst export     write the approved build's data to web/data/
 just sync-pull      # or: uv run pst sync pull  bring the bucket's new files into data/
@@ -46,6 +47,14 @@ Each build checks every dataset and saves only if every check passes. The
 result is `data/serving/build=<id>/fiscal.duckdb`, with `build_manifest.json`
 recording how it was made. The database holds the model tables plus the
 measure views defined in [schema/serving.sql](schema/serving.sql).
+
+Before approving, `diff` shows what changed between the newest build and the
+approved one: figures that vanished (which should never happen), new source
+releases, years added, headline totals, revised figures by government with the
+25 largest, revised population, prices and GDP, and checks. It prints the
+report and saves it in the new build's folder as `changes-vs-<approved build>.md`,
+with every revised figure in `revisions-vs-<approved build>.csv`. Compare any
+two builds with `pst diff <build> --against <other build>`.
 
 A build is only a candidate until it is approved: `approve` records the
 newest complete build (or the one given, e.g. `pst approve <id>` to roll back)
@@ -129,6 +138,7 @@ pipeline/                    the data pipeline (Python package)
     build/run.py             runs every step in order, checks, saves the database
     build/serving.py         adds the measure views and build_info, and checks them
     build/needed.py          whether the downloads are newer than the newest build
+    release/diff.py          what changed between two builds: the report, and every revision as CSV
     release/approve.py       records which build the public site shows
     release/export.py        writes a build's figures as JSON for the site
   tests/

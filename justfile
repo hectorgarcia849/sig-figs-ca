@@ -44,6 +44,10 @@ sync-push *options:
 status:
     uv run pst status
 
+# What changed between the newest build and the approved one (or: just diff <build_id>)
+diff *build:
+    uv run pst diff {{build}}
+
 # Approve a build for the public site: the newest complete one, or the one given
 approve *build:
     uv run pst approve {{build}}

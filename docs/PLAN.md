@@ -247,7 +247,11 @@ spec so the front end cannot drift from it.
 ### Release process
 
 1. The pipeline runs on a schedule (GitHub Actions), builds, runs checks and
-   writes a **"what changed" report**: new years, revised past figures, check results.
+   writes a **"what changed" report** (`pst diff`): figures that vanished, new
+   source releases, years added, headline totals, revised past figures by
+   government with the 25 largest, revised context data, and check results.
+   Every revised figure goes in a CSV beside the report; both are saved in the
+   new build's folder (`changes-vs-<approved>.md`, `revisions-vs-<approved>.csv`).
 2. The release **waits for approval** (GitHub environment protection).
 3. On approval: build the API image with the approved DuckDB file, deploy to
    Cloud Run, rebuild the pages from the same data, deploy to Firebase Hosting.

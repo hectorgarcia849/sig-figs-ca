@@ -7,6 +7,7 @@
     pst approve   approve a build: the one the public site shows
     pst export    write a build's figures as JSON for the site (web/data/)
     pst sync      copy new files between data/ and the Cloud Storage bucket
+    pst diff      what changed between a build and the approved build
 
 Run it from anywhere in the repository with "uv run pst <subcommand>".
 
@@ -17,6 +18,8 @@ variable is used, and without that, ./data.
 approve takes an optional build ID (the newest complete build by default).
 export takes --build (which build; the approved one by default) and --out
 (where to write; web/data/ by default).
+diff takes an optional build ID (the newest complete build by default) and
+--against (the build to compare with; the approved one by default).
 sync takes pull or push, plus --with-approval (push the approval too),
 --dry-run (list what would be copied) and --bucket (another bucket).
 
@@ -50,6 +53,7 @@ from public_spend_tracker_pipeline.common.settings import (
 from public_spend_tracker_pipeline.common.sync import DIRECTIONS, Direction, sync_data
 from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME, run_extract
 from public_spend_tracker_pipeline.release.approve import approve_build, approved_build
+from public_spend_tracker_pipeline.release.diff import checks_passed, diff_builds
 from public_spend_tracker_pipeline.release.export import export_site
 from public_spend_tracker_pipeline.transform.model_sources import table_number
 
@@ -130,6 +134,11 @@ def sync(
     return sync_data(data_root, direction, bucket, with_approval, dry_run)
 
 
+def diff(data_root: Path, build: str | None = None, against: str | None = None) -> int:
+    """What changed between a build and the approved build."""
+    return diff_builds(data_root, build, against)
+
+
 # --- What "status" shows ----------------------------------------------------
 
 
@@ -160,9 +169,7 @@ def _build_lines(data_root: Path) -> list[str]:
             lines.append(f"{build_id}  incomplete  (no manifest)")
             continue
         manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-        checks = sum(len(dataset["checks"]) for dataset in manifest["datasets"])
-        if manifest.get("serving"):
-            checks += len(manifest["serving"]["checks"])
+        checks = checks_passed(build_id, data_root)
         finished = datetime.fromisoformat(manifest["finished_at"]).strftime("%Y-%m-%d %H:%M UTC")
         lines.append(f"{build_id}  complete    {checks} checks passed   {finished}")
 
@@ -200,6 +207,21 @@ def _add_export_options(subcommand: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_diff_options(subcommand: argparse.ArgumentParser) -> None:
+    """The options only "pst diff" takes."""
+    subcommand.add_argument(
+        "build",
+        nargs="?",
+        metavar="BUILD_ID",
+        help="the build to look at (default: the newest complete build)",
+    )
+    subcommand.add_argument(
+        "--against",
+        metavar="BUILD_ID",
+        help="the build to compare it with (default: the approved build)",
+    )
+
+
 def _add_sync_options(subcommand: argparse.ArgumentParser) -> None:
     """The options only "pst sync" takes."""
     subcommand.add_argument(
@@ -225,10 +247,11 @@ def _add_sync_options(subcommand: argparse.ArgumentParser) -> None:
 
 
 # Every subcommand, in the order "pst --help" lists them.
-SUBCOMMANDS = (extract, build, update, status, approve, export, sync)
+SUBCOMMANDS = (extract, build, update, status, diff, approve, export, sync)
 
 # Subcommands with options of their own, and the function that adds them.
 SUBCOMMAND_OPTIONS = {
+    diff: _add_diff_options,
     approve: _add_approve_options,
     export: _add_export_options,
     sync: _add_sync_options,
