@@ -10,7 +10,9 @@ See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 and French) are complete. The site is ready to publish on Firebase Hosting at a
 free web.app address (see [infra/README.md](infra/README.md)); a custom domain
 can be added later. Step 3's Compare page is built (from data files made with
-the site; the API is deferred until it is needed). Next: step 4, automation.
+the site; the API is deferred until it is needed). Step 4, automation, is
+under way: GitHub Actions checks for new data every weekday and releases after
+approval (see [.github/workflows/README.md](.github/workflows/README.md)).
 
 ## Setup
 

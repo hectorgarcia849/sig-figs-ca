@@ -10,8 +10,9 @@ its free address, `https://<site_id>.web.app` (`public-spend-tracker` by default
 | -------------- | --------------------------------------------------------------------- |
 | `storage.tf`   | the private data bucket (`<project>-data`): the permanent copy of `data/`, kept forever, with a year of old versions |
 | `main.tf`      | services switched on, Firebase added, the Hosting site, an optional custom domain, a monthly budget alert |
-| `variables.tf` | the settings: project, site name, custom domain, billing account and budget amount |
-| `outputs.tf`   | the site's name and address (read by `deploy.sh`), DNS records for a custom domain |
+| `github.tf`    | keyless sign-in for GitHub Actions, and its two robot accounts: `pipeline` (read the bucket, add files) and `release` (the same, and replace the approval file) |
+| `variables.tf` | the settings: project, site name, custom domain, billing account, budget amount, GitHub repository |
+| `outputs.tf`   | the site's name and address (read by `deploy.sh`), DNS records for a custom domain, the GitHub variables (`github_variables`) |
 | `versions.tf`  | Terraform and provider versions; state kept in a Cloud Storage bucket |
 
 Terraform does not upload the site's files: `deploy.sh` does, so every release
@@ -47,14 +48,19 @@ you own. Sign in once with `gcloud auth application-default login` (and
 
 ## Each release
 
+GitHub Actions does this on its own, waiting for your approval before
+anything goes live: see [.github/workflows/README.md](../.github/workflows/README.md). By hand,
+from a laptop:
+
 ```bash
 just update            # download new releases and build
 just approve           # approve the newest build (or: just approve <build_id>)
 just deploy-preview    # build the site from it, check every page, put it on a preview address
+                       # (or preview any build: infra/deploy.sh preview <build_id>)
 just deploy-live       # make that preview the live site, and check it shows the approved build
 ```
 
-The preview address lasts 7 days. `deploy-live` publishes exactly what you
+The preview address lasts 30 days. `deploy-live` publishes exactly what you
 reviewed, without building again. To roll back, approve the earlier build and
 release it the same way.
 

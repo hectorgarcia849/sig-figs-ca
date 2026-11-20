@@ -1,0 +1,85 @@
+# Checks: the same tests and code checks as on a laptop ("just test",
+# "just lint", "just web-check"), for every proposed change and every push to
+# main. Branch protection requires them to pass before a change is merged.
+#
+# This workflow has no access to Google Cloud and needs none, so it is safe
+# to run on changes proposed by anyone. The page checks in a real browser need
+# the data, so they run in pipeline.yml, before every release.
+
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch or pull request replaces a run in progress.
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read the code, nothing else.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.14"
+  NODE_VERSION: "24"
+  PNPM_VERSION: "12.21.0"
+
+jobs:
+  pipeline:
+    name: Pipeline (Python)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --all-packages --locked
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Tests
+        run: uv run pytest
+
+  site:
+    name: Site (SvelteKit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Types
+        run: pnpm --dir web check
+
+      - name: Formatting and lint
+        run: pnpm --dir web lint
+
+      - name: Tests
+        run: pnpm --dir web test

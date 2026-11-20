@@ -1,0 +1,289 @@
+# Data and releases: checks for new Statistics Canada data, and puts every
+# change to the site in front of you before the public sees it.
+#
+#   preview   (pipeline robot) brings down the bucket, downloads anything new
+#             and builds. If there is something to release (new data, or new
+#             code pushed to main), it saves the new build to the bucket,
+#             builds the site, runs the page checks, deploys it to the preview
+#             address and opens an issue for you to review it.
+#   release   (release robot) waits for you to approve on GitHub (the
+#             "production" environment). Then it records the approval in the
+#             bucket and makes the exact preview you reviewed the live site.
+#
+# Most scheduled runs find nothing new and stop after the first few steps.
+# Each robot can only do its own job: see infra/github.tf.
+
+name: Data and releases
+
+on:
+  # Weekdays at 15:00 UTC (10:00 Eastern in winter, 11:00 in summer), after
+  # Statistics Canada's 8:30 releases.
+  schedule:
+    - cron: "0 15 * * 1-5"
+  # New code on main: preview the site, then wait for approval.
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "infra/*.tf"
+      - "infra/*.example"
+      - "LICENSE"
+      - ".github/workflows/ci.yml"
+  # The "Run workflow" button: check for new data now.
+  workflow_dispatch:
+    inputs:
+      preview_site:
+        description: "Preview the site (and offer to release it) even if no new data arrived"
+        type: boolean
+        default: false
+
+# One run at a time, so two runs never upload or release at once. A run
+# waiting for approval holds its place; a newer run queues behind it.
+concurrency:
+  group: data-and-releases
+  cancel-in-progress: false
+
+# Each job asks for only what it needs.
+permissions: {}
+
+env:
+  PYTHON_VERSION: "3.14"
+  NODE_VERSION: "24"
+  PNPM_VERSION: "12.21.0"
+  FIREBASE_TOOLS_VERSION: "15.36.0"
+  # Settings from the repository's variables (see .github/workflows/README.md).
+  GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+  FIREBASE_SITE: ${{ vars.FIREBASE_SITE }}
+  SITE_URL: ${{ vars.SITE_URL }}
+  PST_DATA_BUCKET: ${{ vars.PST_DATA_BUCKET }}
+
+jobs:
+  preview:
+    name: Check for new data and preview
+    # The pipeline robot only trusts jobs on main (infra/github.tf).
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write # to sign in to Google Cloud
+      issues: write # to open the review issue
+    outputs:
+      kind: ${{ steps.decide.outputs.kind }}
+      build: ${{ steps.decide.outputs.build }}
+      issue: ${{ steps.issue.outputs.number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      - name: Sign in to Google Cloud as the pipeline robot
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_PIPELINE_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Install the pipeline
+        run: uv sync --all-packages --locked
+
+      - name: Bring down the bucket
+        run: uv run pst sync pull
+
+      - name: Download and build anything new
+        id: data
+        run: |
+          # The newest complete build, and the approved one.
+          newest() {
+            uv run --quiet python -c 'from public_spend_tracker_pipeline.release.approve import newest_complete_build; print(newest_complete_build())'
+          }
+          approved() {
+            uv run --quiet python -c 'from public_spend_tracker_pipeline.release.approve import approved_build; print(approved_build() or "")'
+          }
+          before="$(newest)"
+          uv run pst update
+          {
+            echo "before=$before"
+            echo "after=$(newest)"
+            echo "approved=$(approved)"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Decide what to release
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          PREVIEW_SITE: ${{ inputs.preview_site }}
+          BEFORE: ${{ steps.data.outputs.before }}
+          AFTER: ${{ steps.data.outputs.after }}
+          APPROVED: ${{ steps.data.outputs.approved }}
+        run: |
+          if [[ "$AFTER" != "$BEFORE" ]]; then
+            kind=data build="$AFTER"
+            echo "New data: build $AFTER."
+          elif [[ "$EVENT" == "push" || "$PREVIEW_SITE" == "true" ]]; then
+            kind=code build="$APPROVED"
+            echo "No new data; previewing the site's code with the approved build, $APPROVED."
+          else
+            kind=none build=""
+            echo "Nothing new: no release."
+          fi
+          echo "kind=$kind" >>"$GITHUB_OUTPUT"
+          echo "build=$build" >>"$GITHUB_OUTPUT"
+
+      - name: Report what changed, and save the new build to the bucket
+        if: steps.decide.outputs.kind == 'data'
+        env:
+          BUILD: ${{ steps.decide.outputs.build }}
+        run: |
+          uv run pst diff "$BUILD"
+          uv run pst sync push
+
+      # Everything below runs only when there is something to release.
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: steps.decide.outputs.kind != 'none'
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.decide.outputs.kind != 'none'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install the site, its browser checks and the Firebase tool
+        if: steps.decide.outputs.kind != 'none'
+        run: |
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir web exec playwright install --with-deps chromium
+          npm install --global "firebase-tools@$FIREBASE_TOOLS_VERSION"
+
+      - name: Build, check and deploy the preview
+        id: preview
+        if: steps.decide.outputs.kind != 'none'
+        env:
+          BUILD: ${{ steps.decide.outputs.build }}
+        run: infra/deploy.sh preview "$BUILD"
+
+      - name: Open an issue to review the release
+        id: issue
+        if: steps.decide.outputs.kind != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KIND: ${{ steps.decide.outputs.kind }}
+          BUILD: ${{ steps.decide.outputs.build }}
+          APPROVED: ${{ steps.data.outputs.approved }}
+          PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          short="${GITHUB_SHA:0:7}"
+          # The code the live site was built from, if it says (build.json).
+          live_commit="$(curl -fsS "$SITE_URL/build.json" |
+            python3 -c 'import json, sys; print((json.load(sys.stdin).get("commit") or "").removesuffix("-dirty"))' ||
+            true)"
+
+          if [[ "$KIND" == "data" ]]; then
+            title="Review release: new data (build $BUILD)"
+          else
+            title="Review release: site changes ($short)"
+          fi
+          {
+            if [[ "$KIND" == "data" ]]; then
+              echo "New data: build \`$BUILD\`, to replace the approved build \`$APPROVED\`."
+            else
+              echo "Site changes, showing the approved build \`$BUILD\`."
+            fi
+            echo
+            echo "- **Preview:** $PREVIEW_URL"
+            echo "- **Approve or reject:** $RUN_URL (\"Review deployments\")"
+            echo "- **Code:** $REPOSITORY_URL/commit/$GITHUB_SHA"
+            if [[ -n "$live_commit" && "$live_commit" != "$GITHUB_SHA" ]]; then
+              echo "- **Code changes since the live site:** $REPOSITORY_URL/compare/$live_commit...$GITHUB_SHA"
+            fi
+            if [[ "$KIND" == "data" ]]; then
+              echo "- **Every revised figure:** \`$PST_DATA_BUCKET/serving/build=$BUILD/revisions-vs-$APPROVED.csv\`"
+              echo
+              report="data/serving/build=$BUILD/changes-vs-$APPROVED.md"
+              if [[ -f "$report" ]]; then cat "$report"; else echo "(No report: there was no approved build to compare with.)"; fi
+            fi
+          } >release.md
+
+          cat release.md >>"$GITHUB_STEP_SUMMARY"
+          url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file release.md)"
+          echo "Opened $url"
+          echo "number=${url##*/}" >>"$GITHUB_OUTPUT"
+
+  release:
+    name: Release (after approval)
+    needs: preview
+    if: needs.preview.outputs.kind == 'data' || needs.preview.outputs.kind == 'code'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Waits here until you approve. The release robot only trusts jobs in
+    # this environment (infra/github.tf).
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+    permissions:
+      contents: read
+      id-token: write # to sign in to Google Cloud
+      issues: write # to close the review issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Sign in to Google Cloud as the release robot
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_RELEASE_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Install the pipeline and the Firebase tool
+        run: |
+          uv sync --all-packages --locked
+          npm install --global "firebase-tools@$FIREBASE_TOOLS_VERSION"
+
+      - name: Bring down the bucket
+        run: uv run pst sync pull
+
+      - name: Record the approval in the bucket
+        if: needs.preview.outputs.kind == 'data'
+        env:
+          BUILD: ${{ needs.preview.outputs.build }}
+        run: |
+          uv run pst approve "$BUILD"
+          uv run pst sync push --with-approval
+
+      - name: Make the preview the live site, and check it
+        run: infra/deploy.sh live
+
+      - name: Close the review issue
+        if: needs.preview.outputs.issue != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ needs.preview.outputs.issue }}
+          BUILD: ${{ needs.preview.outputs.build }}
+        run: |
+          gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+            --comment "Released: $SITE_URL shows build \`$BUILD\`, from commit $GITHUB_SHA."

@@ -259,13 +259,22 @@ spec so the front end cannot drift from it.
    **release summary** for review. The same summary feeds the public revision
    history on the Methodology page.
 
-Until this is automated, a release is three commands run by hand:
-`pst approve` (records the build in `current.json`), `just deploy-preview`
-(builds the site from the approved build, runs the page checks, and publishes
-to a Firebase preview address for review), and `just deploy-live` (promotes
-exactly that preview, then checks the live `build.json` shows the approved
-build). The site uses its free `web.app` address until a domain is bought;
-Terraform's `custom_domain` setting adds one without changing anything else.
+While there is no API, step 3 is: rebuild the pages from the approved build
+and deploy to Firebase Hosting. GitHub Actions runs it (`pipeline.yml` in
+`.github/workflows/`, described in the README there): every weekday it checks
+for new data, and when there is something to release (new data, or new code on
+`main`) it builds, checks every page, puts the site on a preview address and
+opens an issue with the report. Approving the waiting release job records the
+build in `current.json`, promotes exactly that preview, and checks the live
+`build.json` names the approved build (and the code's commit). Two Google
+Cloud robot accounts do the work, signed in without stored keys: the daily one
+can only add files to the data bucket, and only the release one can change
+the approval. By hand, the same release is `pst approve`,
+`just deploy-preview` and `just deploy-live`.
+
+The site is at its free `web.app` address until its domain, sigfigs.ca
+(bought 2026-11-19), is connected; Terraform's `custom_domain` setting then
+manages it without changing anything else.
 
 ### Hosting and cost (Google Cloud, `us-central1`)
 

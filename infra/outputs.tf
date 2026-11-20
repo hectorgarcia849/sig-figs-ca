@@ -25,19 +25,18 @@ output "data_bucket" {
   value       = "gs://${google_storage_bucket.data.name}"
 }
 
-# For GitHub's repository settings (variables, not secrets: they grant nothing).
+# For GitHub's repository variables (not secrets: none of them grants
+# anything). See .github/workflows/README.md.
 
-output "github_workload_identity_provider" {
-  description = "GitHub variable GCP_WORKLOAD_IDENTITY_PROVIDER: where jobs sign in."
-  value       = google_iam_workload_identity_pool_provider.github.name
-}
-
-output "github_pipeline_service_account" {
-  description = "GitHub variable GCP_PIPELINE_SERVICE_ACCOUNT: the daily pipeline's robot."
-  value       = google_service_account.pipeline.email
-}
-
-output "github_release_service_account" {
-  description = "GitHub variable GCP_RELEASE_SERVICE_ACCOUNT: the release's robot."
-  value       = google_service_account.release.email
+output "github_variables" {
+  description = "Every variable the GitHub workflows read, by name."
+  value = {
+    GCP_PROJECT                    = var.project_id
+    GCP_WORKLOAD_IDENTITY_PROVIDER = google_iam_workload_identity_pool_provider.github.name
+    GCP_PIPELINE_SERVICE_ACCOUNT   = google_service_account.pipeline.email
+    GCP_RELEASE_SERVICE_ACCOUNT    = google_service_account.release.email
+    FIREBASE_SITE                  = google_firebase_hosting_site.site.site_id
+    SITE_URL                       = var.custom_domain == null ? google_firebase_hosting_site.site.default_url : "https://${var.custom_domain}"
+    PST_DATA_BUCKET                = "gs://${google_storage_bucket.data.name}"
+  }
 }

@@ -83,4 +83,5 @@ test('build.json names the build the site was made from', async ({ request }) =>
 	const exported = JSON.parse(readFileSync('data/meta.json', 'utf-8'));
 	const published = await (await request.get('/build.json')).json();
 	expect(published.build_id).toBe(exported.build_id);
+	expect(published.commit).toMatch(/^[0-9a-f]{40}(-dirty)?$/);
 });
