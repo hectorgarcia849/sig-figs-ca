@@ -35,8 +35,14 @@ locals {
   # The approval file, as the release robot's permission condition names it.
   approval_object = "projects/_/buckets/${google_storage_bucket.data.name}/objects/serving/current.json"
 
-  # What both robots may do with the data bucket, and on Firebase Hosting.
-  bucket_roles = ["roles/storage.objectViewer", "roles/storage.objectCreator"]
+  # What both robots may do with the data bucket: read the bucket's settings
+  # (gcloud storage rsync needs this to sync the whole bucket), read files,
+  # and add new ones. And on Firebase Hosting: deploy.
+  bucket_roles = [
+    "roles/storage.bucketViewer",
+    "roles/storage.objectViewer",
+    "roles/storage.objectCreator",
+  ]
   hosting_role = "roles/firebasehosting.admin"
 }
 
