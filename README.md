@@ -27,17 +27,20 @@ just setup          # or: uv sync --all-packages && pnpm --dir web install
 Everything goes through one command, `pst`:
 
 ```bash
-just update         # or: uv run pst update     download new releases, then build
+just update         # or: uv run pst update     download new releases, then build if anything new arrived
 just status         # or: uv run pst status     what is downloaded and built
 just extract        # or: uv run pst extract    download only
 just build          # or: uv run pst build      build only
 just approve        # or: uv run pst approve    approve the newest build for the public site
 just export         # or: uv run pst export     write the approved build's data to web/data/
+just sync-pull      # or: uv run pst sync pull  bring the bucket's new files into data/
+just sync-push      # or: uv run pst sync push  send data/'s new files to the bucket
 ```
 
 Downloads land in `data/raw/source=statcan/table=<number>/release=<date>/`;
 only tables with a new release are downloaded. `update` stops before building
-if any download fails.
+if any download fails, and only builds when a download is newer than the
+newest build (`build` always builds).
 
 Each build checks every dataset and saves only if every check passes. The
 result is `data/serving/build=<id>/fiscal.duckdb`, with `build_manifest.json`
@@ -50,6 +53,14 @@ in `data/serving/current.json`. `export` copies the approved build's figures
 into JSON files in `web/data/` (not kept in git), which the site is built from.
 Export another build with `--build <id>` (e.g. to look at it before approving
 it) or to another folder with `--out <folder>`.
+
+The permanent copy of `data/` is the Cloud Storage bucket
+`gs://ca-pol-econ-data` (same folders; see `infra/storage.tf`). `pst sync`
+copies between them with `gcloud storage rsync`: it never deletes anything,
+never overwrites a file already at the other end, and copies manifests last,
+so a half-finished sync is ignored like a half-finished download. The approval
+(`serving/current.json`) always comes down with a pull, and only goes up with
+`pst sync push --with-approval`. Add `--dry-run` to see what would be copied.
 
 To use a data folder other than `./data`, pass `--data-root` (e.g.
 `uv run pst --data-root /tmp/test build`) or set `PST_DATA_ROOT`.
@@ -105,6 +116,7 @@ pipeline/                    the data pipeline (Python package)
     common/settings.py       tables and governments we use, folders, connection settings
     common/paths.py          where every data file lives
     common/logs.py           logging to the screen and a log file per run
+    common/sync.py           pst sync: copies between data/ and the Cloud Storage bucket
     common/http_client.py    web connections that retry brief server problems
     extract/statcan.py       downloads Statistics Canada tables as published
     transform/base.py        what every transformer declares, and shared checks
@@ -116,6 +128,7 @@ pipeline/                    the data pipeline (Python package)
     transform/model_sources.py   the source behind every figure, with links
     build/run.py             runs every step in order, checks, saves the database
     build/serving.py         adds the measure views and build_info, and checks them
+    build/needed.py          whether the downloads are newer than the newest build
     release/approve.py       records which build the public site shows
     release/export.py        writes a build's figures as JSON for the site
   tests/

@@ -28,9 +28,17 @@ extract:
 build:
     uv run pst build
 
-# Download, then build: the everyday command
+# Download, then build if anything new arrived: the everyday command
 update:
     uv run pst update
+
+# Bring the bucket's new files (and its approval) down into data/
+sync-pull *options:
+    uv run pst sync pull {{options}}
+
+# Send data/'s new files up to the bucket (add --with-approval to send the approval too)
+sync-push *options:
+    uv run pst sync push {{options}}
 
 # Show downloads, builds and the approved build (changes nothing)
 status:

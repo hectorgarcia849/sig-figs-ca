@@ -2,8 +2,8 @@
 
 Every pipeline step asks this module where to read and write, so no other
 module puts a folder path together itself. The layout is the same locally
-(under ./data) and, later, in the cloud bucket, so syncing to the cloud is a
-plain copy of the folder tree.
+(under ./data) and in the Cloud Storage bucket, so syncing between them
+("pst sync", see sync.py) is a plain copy of the folder tree.
 
     data/
     ├── raw/source=statcan/table=10100005/release=2025-11-27/

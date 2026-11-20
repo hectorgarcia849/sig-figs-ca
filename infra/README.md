@@ -8,6 +8,7 @@ its free address, `https://<site_id>.web.app` (`public-spend-tracker` by default
 
 | File           | What                                                                  |
 | -------------- | --------------------------------------------------------------------- |
+| `storage.tf`   | the private data bucket (`<project>-data`): the permanent copy of `data/`, kept forever, with a year of old versions |
 | `main.tf`      | services switched on, Firebase added, the Hosting site, an optional custom domain, a monthly budget alert |
 | `variables.tf` | the settings: project, site name, custom domain, billing account and budget amount |
 | `outputs.tf`   | the site's name and address (read by `deploy.sh`), DNS records for a custom domain |

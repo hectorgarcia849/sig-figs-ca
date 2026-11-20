@@ -4,4 +4,5 @@ settings     tables and governments we use, folders, connection settings
 paths        where every data file lives
 logs         logging to the screen and a log file per run
 http_client  web connections that retry brief server problems
+sync         copies between data/ and the Cloud Storage bucket
 """

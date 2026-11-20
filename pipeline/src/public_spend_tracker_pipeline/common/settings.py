@@ -25,6 +25,11 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 # contract between the pipeline and the API and site.
 SERVING_SQL_FILE = REPOSITORY_ROOT / "schema" / "serving.sql"
 
+# The Cloud Storage bucket holding the permanent copy of the data folder (same
+# folders as data/). "pst sync" copies between the two. Made by Terraform
+# (infra/storage.tf). Set PST_DATA_BUCKET to use another bucket.
+DATA_BUCKET = os.environ.get("PST_DATA_BUCKET", "gs://ca-pol-econ-data")
+
 # Where "pst export" writes the JSON files the site is built from. Generated,
 # so not kept in git.
 WEB_DATA_FOLDER = REPOSITORY_ROOT / "web" / "data"

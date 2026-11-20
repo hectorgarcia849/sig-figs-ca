@@ -2,10 +2,11 @@
 
     pst extract   download new Statistics Canada releases
     pst build     build and check the database from everything downloaded
-    pst update    extract, then build: the everyday command
+    pst update    extract, then build if anything new arrived: the everyday command
     pst status    show downloads, builds and the approved build (changes nothing)
     pst approve   approve a build: the one the public site shows
     pst export    write a build's figures as JSON for the site (web/data/)
+    pst sync      copy new files between data/ and the Cloud Storage bucket
 
 Run it from anywhere in the repository with "uv run pst <subcommand>".
 
@@ -16,6 +17,8 @@ variable is used, and without that, ./data.
 approve takes an optional build ID (the newest complete build by default).
 export takes --build (which build; the approved one by default) and --out
 (where to write; web/data/ by default).
+sync takes pull or push, plus --with-approval (push the approval too),
+--dry-run (list what would be copied) and --bucket (another bucket).
 
 Exit codes: 0 when everything worked, 1 when anything failed.
 """
@@ -29,6 +32,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
+from public_spend_tracker_pipeline.build.needed import reasons_to_build
 from public_spend_tracker_pipeline.build.run import build_everything
 from public_spend_tracker_pipeline.common.paths import (
     BUILD_MANIFEST_FILE_NAME,
@@ -37,7 +41,13 @@ from public_spend_tracker_pipeline.common.paths import (
     serving_build_folder,
     stored_builds,
 )
-from public_spend_tracker_pipeline.common.settings import DATA_ROOT, STATCAN_TABLES, WEB_DATA_FOLDER
+from public_spend_tracker_pipeline.common.settings import (
+    DATA_BUCKET,
+    DATA_ROOT,
+    STATCAN_TABLES,
+    WEB_DATA_FOLDER,
+)
+from public_spend_tracker_pipeline.common.sync import DIRECTIONS, Direction, sync_data
 from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME, run_extract
 from public_spend_tracker_pipeline.release.approve import approve_build, approved_build
 from public_spend_tracker_pipeline.release.export import export_site
@@ -64,14 +74,22 @@ def build(data_root: Path) -> int:
 
 
 def update(data_root: Path) -> int:
-    """Extract, then build. Stops before building if any download failed.
+    """Extract, then build if anything new arrived.
 
-    A failed download could mean a new release was missed, so it is better to
-    find out than to build from data that may be out of date.
+    Stops before building if any download failed: a failed download could mean
+    a new release was missed, so it is better to find out than to build from
+    data that may be out of date. Builds only when the downloads are newer than
+    the newest build (see build/needed.py); "pst build" always builds.
     """
     if run_extract(data_root) != SUCCESS:
         print("Some downloads failed, so nothing was built.", file=sys.stderr)
         return FAILURE
+    reasons = reasons_to_build(data_root)
+    if not reasons:
+        print("Nothing new: the newest build already uses every download. Nothing was built.")
+        return SUCCESS
+    for reason in reasons:
+        print(f"Building: {reason}")
     return build_everything(data_root)
 
 
@@ -99,6 +117,17 @@ def approve(data_root: Path, build: str | None = None) -> int:
 def export(data_root: Path, build: str | None = None, out: Path = WEB_DATA_FOLDER) -> int:
     """Write a build's figures as JSON for the site (web/data/)."""
     return export_site(data_root, build, out)
+
+
+def sync(
+    data_root: Path,
+    direction: Direction,
+    bucket: str = DATA_BUCKET,
+    with_approval: bool = False,
+    dry_run: bool = False,
+) -> int:
+    """Copy new files between data/ and the Cloud Storage bucket."""
+    return sync_data(data_root, direction, bucket, with_approval, dry_run)
 
 
 # --- What "status" shows ----------------------------------------------------
@@ -171,11 +200,39 @@ def _add_export_options(subcommand: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_sync_options(subcommand: argparse.ArgumentParser) -> None:
+    """The options only "pst sync" takes."""
+    subcommand.add_argument(
+        "direction",
+        choices=DIRECTIONS,
+        help="pull: bucket to data/; push: data/ to bucket",
+    )
+    subcommand.add_argument(
+        "--with-approval",
+        action="store_true",
+        help="when pushing, also send serving/current.json (a pull always brings it)",
+    )
+    subcommand.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="list what would be copied, and copy nothing",
+    )
+    subcommand.add_argument(
+        "--bucket",
+        default=DATA_BUCKET,
+        help="the bucket to sync with (default: PST_DATA_BUCKET, or gs://ca-pol-econ-data)",
+    )
+
+
 # Every subcommand, in the order "pst --help" lists them.
-SUBCOMMANDS = (extract, build, update, status, approve, export)
+SUBCOMMANDS = (extract, build, update, status, approve, export, sync)
 
 # Subcommands with options of their own, and the function that adds them.
-SUBCOMMAND_OPTIONS = {approve: _add_approve_options, export: _add_export_options}
+SUBCOMMAND_OPTIONS = {
+    approve: _add_approve_options,
+    export: _add_export_options,
+    sync: _add_sync_options,
+}
 
 # Options every subcommand shares, which are not passed on as subcommand options.
 SHARED_OPTIONS = ("run", "data_root")

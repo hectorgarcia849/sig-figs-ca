@@ -18,6 +18,7 @@ locals {
     "billingbudgets.googleapis.com",
     "firebase.googleapis.com",
     "firebasehosting.googleapis.com",
+    "storage.googleapis.com",
   ]
 
   # Spending alerts at half, nine tenths and all of the monthly budget.

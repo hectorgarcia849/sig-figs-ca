@@ -19,3 +19,8 @@ output "custom_domain_dns_records" {
   description = "The DNS records to add at your registrar for the custom domain (empty without one)."
   value       = var.custom_domain == null ? [] : google_firebase_hosting_custom_domain.domain[0].required_dns_updates
 }
+
+output "data_bucket" {
+  description = "The data bucket, as pst sync expects it (PST_DATA_BUCKET)."
+  value       = "gs://${google_storage_bucket.data.name}"
+}

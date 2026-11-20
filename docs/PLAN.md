@@ -145,7 +145,7 @@ Statistics Canada data API (free, no key)
 ### Storage (Cloud Storage, one bucket)
 
 ```
-gs://public_spend_tracker-data-prod/
+gs://ca-pol-econ-data/     (the project ID, then "-data")
 ├── raw/source=statcan/table=<product_id>/release=<date>/   (files + _manifest.json)
 ├── staged/dataset=<name>/release=<date>/data.parquet
 ├── model/dataset=<name>/build=<build_id>/data.parquet
@@ -158,8 +158,19 @@ Every folder below the top level is named "label=value", so tools such as
 DuckDB can read the release date or build ID straight from the path. A build ID
 is the UTC time the build started, e.g. `20261114-153000`.
 
-Raw files are kept forever (they hold the revision history). Staged and model
-outputs can be regenerated and expire after a set period.
+Everything is kept: raw files hold the revision history, and the whole folder
+is a few tens of megabytes (builds are about 2 MB). Revisit automatic deletion
+when large datasets arrive (M5). Versioning keeps a replaced file's old
+version for a year; only the approval (`current.json`) is ever replaced, so
+this keeps a history of approvals.
+
+The bucket has the same folders as the local `data/` folder. `pst sync pull`
+and `pst sync push` copy between them (with `gcloud storage rsync`): nothing
+is deleted, nothing at the other end is overwritten, and manifests are copied
+last, so a half-finished sync is ignored. The approval comes down with every
+pull and only goes up when asked (`--with-approval`). `pst update` only builds
+when a download is newer than the newest build, so a daily schedule does not
+make a build a day.
 
 ### Serving
 

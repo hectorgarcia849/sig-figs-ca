@@ -23,8 +23,10 @@ from public_spend_tracker_pipeline.common.settings import WEB_DATA_FOLDER
 class StandIns:
     """Records which steps ran, with which data folder, and returns chosen exit codes."""
 
-    def __init__(self, monkeypatch, extract_code=0, build_code=0):
+    def __init__(self, monkeypatch, extract_code=0, build_code=0, reasons=("something new",)):
         self.calls = []
+        monkeypatch.setattr(cli, "reasons_to_build", lambda data_root: list(reasons))
+        monkeypatch.setattr(cli, "sync_data", self.sync_stand_in)
         monkeypatch.setattr(cli, "run_extract", self.stand_in("extract", extract_code))
         monkeypatch.setattr(cli, "build_everything", self.stand_in("build", build_code))
         monkeypatch.setattr(cli, "export_site", self.export_stand_in)
@@ -36,6 +38,10 @@ class StandIns:
             return code
 
         return run
+
+    def sync_stand_in(self, data_root, direction, bucket, with_approval, dry_run):
+        self.calls.append(("sync", data_root, direction, bucket, with_approval, dry_run))
+        return 0
 
     def approve_stand_in(self, data_root, build_id):
         self.calls.append(("approve", data_root, build_id))
@@ -51,7 +57,7 @@ def test_help_lists_every_subcommand(capsys):
         cli.main(["--help"])
     assert exit_info.value.code == 0
     help_text = capsys.readouterr().out
-    for subcommand in ("extract", "build", "update", "status", "approve", "export"):
+    for subcommand in ("extract", "build", "update", "status", "approve", "export", "sync"):
         assert subcommand in help_text
 
 
@@ -65,6 +71,26 @@ def test_update_extracts_then_builds(monkeypatch, tmp_path):
     steps = StandIns(monkeypatch)
     assert cli.main(["--data-root", str(tmp_path), "update"]) == 0
     assert steps.calls == [("extract", tmp_path), ("build", tmp_path)]
+
+
+def test_update_does_not_build_when_nothing_new_arrived(monkeypatch, tmp_path, capsys):
+    steps = StandIns(monkeypatch, reasons=())
+    assert cli.main(["--data-root", str(tmp_path), "update"]) == 0
+    assert steps.calls == [("extract", tmp_path)]
+    assert "Nothing new" in capsys.readouterr().out
+
+
+def test_sync_passes_on_its_choices(monkeypatch, tmp_path):
+    steps = StandIns(monkeypatch)
+    root = ["--data-root", str(tmp_path)]
+    assert cli.main([*root, "sync", "pull"]) == 0
+    assert (
+        cli.main([*root, "sync", "push", "--with-approval", "--dry-run", "--bucket", "gs://b"]) == 0
+    )
+    assert steps.calls == [
+        ("sync", tmp_path, "pull", "gs://ca-pol-econ-data", False, False),
+        ("sync", tmp_path, "push", "gs://b", True, True),
+    ]
 
 
 def test_update_does_not_build_when_a_download_failed(monkeypatch, tmp_path, capsys):
