@@ -51,3 +51,17 @@ variable "monthly_budget" {
   type        = number
   default     = 10
 }
+
+variable "github_repository" {
+  description = "The GitHub repository whose Actions jobs may sign in, as \"owner/name\"."
+  type        = string
+}
+
+variable "github_repository_id" {
+  description = <<-EOT
+    The repository's permanent number, which GitHub never reuses, e.g.
+    "1464956819" (see https://api.github.com/repos/<owner>/<name>, "id").
+    Sign-in is limited by this number rather than the name.
+  EOT
+  type        = string
+}

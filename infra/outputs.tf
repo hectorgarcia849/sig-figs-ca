@@ -24,3 +24,20 @@ output "data_bucket" {
   description = "The data bucket, as pst sync expects it (PST_DATA_BUCKET)."
   value       = "gs://${google_storage_bucket.data.name}"
 }
+
+# For GitHub's repository settings (variables, not secrets: they grant nothing).
+
+output "github_workload_identity_provider" {
+  description = "GitHub variable GCP_WORKLOAD_IDENTITY_PROVIDER: where jobs sign in."
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
+output "github_pipeline_service_account" {
+  description = "GitHub variable GCP_PIPELINE_SERVICE_ACCOUNT: the daily pipeline's robot."
+  value       = google_service_account.pipeline.email
+}
+
+output "github_release_service_account" {
+  description = "GitHub variable GCP_RELEASE_SERVICE_ACCOUNT: the release's robot."
+  value       = google_service_account.release.email
+}

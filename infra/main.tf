@@ -7,6 +7,8 @@
 #   budget         an email alert if monthly spending passes var.monthly_budget
 #                  (only when var.billing_account is set)
 #
+# The data bucket is in storage.tf; GitHub Actions' sign-in in github.tf.
+#
 # The site's files are not uploaded by Terraform: infra/deploy.sh does that
 # with the Firebase command line tool, so each release is a reviewable step.
 
@@ -19,6 +21,10 @@ locals {
     "firebase.googleapis.com",
     "firebasehosting.googleapis.com",
     "storage.googleapis.com",
+    # For GitHub Actions' keyless sign-in (github.tf).
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
   ]
 
   # Spending alerts at half, nine tenths and all of the monthly budget.
