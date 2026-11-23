@@ -25,9 +25,16 @@
 locals {
   github_issuer = "https://token.actions.githubusercontent.com"
 
-  # The token's "subject" for each robot's jobs, as GitHub writes it.
-  pipeline_subject = "repo:${var.github_repository}:ref:refs/heads/main"
-  release_subject  = "repo:${var.github_repository}:environment:production"
+  # The token's "subject" for each robot's jobs, as GitHub writes it. GitHub
+  # names the repository with the owner's and the repository's permanent
+  # numbers ("owner@123/name@456"), so a renamed or re-made repository never
+  # matches.
+  github_owner               = split("/", var.github_repository)[0]
+  github_name                = split("/", var.github_repository)[1]
+  github_numbered_repository = "${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repository_id}"
+
+  pipeline_subject = "repo:${local.github_numbered_repository}:ref:refs/heads/main"
+  release_subject  = "repo:${local.github_numbered_repository}:environment:production"
 
   # The address of every token with a given subject, as Google writes it.
   github_principal = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject"

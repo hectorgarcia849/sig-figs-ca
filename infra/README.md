@@ -32,8 +32,10 @@ you own. Sign in once with `gcloud auth application-default login` (and
 
 2. Copy `terraform.tfvars.example` to `terraform.tfvars` and fill in
    `project_id`, and `billing_account` for the budget alert (shown by
-   `gcloud billing projects describe <project-id>`). Set `site_id` if you
-   want a different free address.
+   `gcloud billing projects describe <project-id>`). Fill in the GitHub
+   repository and its owner's and its own permanent numbers, which keyless
+   sign-in checks (the example file says where to find them). Set `site_id`
+   if you want a different free address.
 
 3. Look at what will be made, then make it:
 

@@ -2,10 +2,12 @@
 
 project_id = "your-project-id"
 
-# The GitHub repository whose Actions jobs may sign in, and its number
-# (https://api.github.com/repos/<owner>/<name>, "id").
+# The GitHub repository whose Actions jobs may sign in, its number
+# (https://api.github.com/repos/<owner>/<name>, "id") and its owner's number
+# (https://api.github.com/users/<owner>, "id").
 github_repository    = "owner/name"
 github_repository_id = "123456789"
+github_owner_id      = "12345678"
 
 # Optional: change the free address (https://<site_id>.web.app).
 # site_id = "public-spend-tracker"

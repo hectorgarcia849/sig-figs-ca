@@ -55,13 +55,27 @@ variable "monthly_budget" {
 variable "github_repository" {
   description = "The GitHub repository whose Actions jobs may sign in, as \"owner/name\"."
   type        = string
+
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "Write the repository as \"owner/name\"."
+  }
 }
 
 variable "github_repository_id" {
   description = <<-EOT
     The repository's permanent number, which GitHub never reuses, e.g.
-    "1464956819" (see https://api.github.com/repos/<owner>/<name>, "id").
+    "123456789" (see https://api.github.com/repos/<owner>/<name>, "id").
     Sign-in is limited by this number rather than the name.
+  EOT
+  type        = string
+}
+
+variable "github_owner_id" {
+  description = <<-EOT
+    The repository owner's permanent number, e.g. "12345678" (see
+    https://api.github.com/users/<owner>, "id"). GitHub puts it in the name
+    of every job that signs in.
   EOT
   type        = string
 }
