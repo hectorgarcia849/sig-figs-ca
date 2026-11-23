@@ -53,13 +53,17 @@ HTTP_RETRY_WAIT_SECONDS = 5
 # How we identify ourselves to servers. Deliberately generic: no personal details.
 USER_AGENT = "public_spend_tracker/0.1"
 
-# The encryption key-exchange method used when connecting. Newer Python versions
-# (with OpenSSL 3.5) offer an extra "post-quantum" method by default, which makes
-# the first connection message larger. Statistics Canada's servers sometimes
-# never answer that larger message, so about one connection in three hung until
-# it timed out. Offering only X25519, the widely used standard method, made
-# every test connection succeed.
-TLS_KEY_EXCHANGE = "X25519"
+# The encryption key-exchange method used when connecting: we offer only one.
+#
+# Why only one: newer Python versions (with OpenSSL 3.5 and later) also offer a
+# "post-quantum" method by default, which makes the first connection message
+# larger. Statistics Canada's servers sometimes never answered that larger
+# message, so about one connection in three hung until it timed out.
+#
+# Why P-256 ("prime256v1"): it is the method every web server supports. We first
+# offered X25519, but in November 2026 Statistics Canada's servers stopped
+# accepting it and every connection failed ("wrong curve").
+TLS_KEY_EXCHANGE = "prime256v1"
 
 
 # --- The Statistics Canada tables we use ------------------------------------
