@@ -73,8 +73,20 @@ terraform -chdir=infra output github_variables
 required reviewer and only the `main` branch allowed to deploy. The release
 robot only trusts jobs in this environment.
 
+**Actions settings** (Settings > Actions > General):
+
+- Workflow permissions: read only. Each job asks for exactly what it needs.
+- Approval for running workflows from forks: required for all outside
+  contributors.
+- Actions permissions: only the actions below, and only when pinned to a full
+  commit. The allowed list: `actions/checkout`, `actions/setup-node`,
+  `astral-sh/setup-uv`, `pnpm/action-setup`, `google-github-actions/auth` and
+  `google-github-actions/setup-gcloud`, each written as `owner/name@*`. A new
+  action has to be added there before a workflow can use it.
+
 ## Versions
 
 Every action is pinned to an exact commit, with its version in a comment, so
 a new release of an action cannot change what runs with the robots' access.
-To update one, look up the new release's commit and change both.
+To update one, look up the new release's commit and change both. GitHub
+refuses to run an action that is not pinned this way.
