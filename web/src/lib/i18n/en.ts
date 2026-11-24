@@ -31,6 +31,7 @@ export const en = {
 	licenceUrl: 'https://open.canada.ca/en/open-government-licence-canada',
 	sourceTables: 'Source tables',
 	doi: 'DOI',
+	termsOfUse: 'terms of use',
 
 	// The switches.
 	measure: 'Measure',

@@ -22,8 +22,12 @@ from public_spend_tracker_pipeline.common.paths import (
     serving_build_folder,
     stored_builds,
 )
-from public_spend_tracker_pipeline.common.settings import DATA_ROOT, STATCAN_TABLES
-from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME
+from public_spend_tracker_pipeline.common.settings import (
+    DATA_ROOT,
+    ELECTIONS_FILES,
+    STATCAN_TABLES,
+)
+from public_spend_tracker_pipeline.extract import elections, statcan
 
 
 def reasons_to_build(data_root: Path = DATA_ROOT) -> list[str]:
@@ -39,15 +43,23 @@ def reasons_to_build(data_root: Path = DATA_ROOT) -> list[str]:
     newest = json.loads(complete[-1].read_text(encoding="utf-8"))
     used = {source["table_name"]: source["release"] for source in newest["sources"]}
 
+    folders = [
+        (table.name, raw_table_folder(statcan.SOURCE_NAME, table.product_id, data_root))
+        for table in STATCAN_TABLES
+    ] + [
+        (source_file.name, raw_table_folder(elections.SOURCE_NAME, source_file.name, data_root))
+        for source_file in ELECTIONS_FILES
+    ]
+
     reasons = []
-    for table in STATCAN_TABLES:
-        releases = complete_releases(raw_table_folder(SOURCE_NAME, table.product_id, data_root))
+    for name, folder in folders:
+        releases = complete_releases(folder)
         if not releases:
             continue  # never downloaded: the build will say so
         downloaded = releases[-1].isoformat()
-        if used.get(table.name) != downloaded:
+        if used.get(name) != downloaded:
             reasons.append(
-                f"{table.name}: release {downloaded} is not in build {newest['build_id']} "
-                f"(it used {used.get(table.name, 'none')})"
+                f"{name}: release {downloaded} is not in build {newest['build_id']} "
+                f"(it used {used.get(name, 'none')})"
             )
     return reasons

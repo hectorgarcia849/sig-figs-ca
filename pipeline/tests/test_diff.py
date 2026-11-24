@@ -153,6 +153,11 @@ def test_every_dataset_is_compared_by_its_layout(data_root):
         "municipal_transfers": (1, 0, 0, 0),  # 2025-26 added
         "context": (0, 0, 2, 0),  # Ontario's 2024 CPI, fiscal and calendar
         "sources": (0, 0, 0, 1),  # the new release
+        # In neither made-up build:
+        "ridings": (0, 0, 0, 0),
+        "parties": (0, 0, 0, 0),
+        "election_districts": (0, 0, 0, 0),
+        "election_candidates": (0, 0, 0, 0),
     }
     assert (comparison.old_checks, comparison.new_checks) == (4, 5)
 

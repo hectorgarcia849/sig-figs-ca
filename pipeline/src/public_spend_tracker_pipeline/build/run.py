@@ -7,7 +7,8 @@ Run it from the repository root with:
 One build:
 
     1. Starts a log and takes an ID from the current time, e.g. 20261115-153000.
-    2. Finds every complete download of every Statistics Canada table.
+    2. Finds every complete download of every Statistics Canada table and
+       Elections Canada file.
     3. Staged step: turns every downloaded release into a staged dataset and
        checks it. Results go to a temporary work folder for now.
     4. Model step: runs the model transformers in the order their inputs need.
@@ -73,11 +74,13 @@ from public_spend_tracker_pipeline.common.paths import (
 )
 from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
+    ELECTIONS_FILES,
     REPOSITORY_ROOT,
     STATCAN_TABLES,
+    ElectionsFile,
     StatCanTable,
 )
-from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME
+from public_spend_tracker_pipeline.extract import elections, statcan
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
     Transformer,
@@ -85,9 +88,21 @@ from public_spend_tracker_pipeline.transform.base import (
     sql_text,
 )
 from public_spend_tracker_pipeline.transform.model_context import Context
+from public_spend_tracker_pipeline.transform.model_elections import (
+    ElectionCandidates,
+    ElectionDistricts,
+    Parties,
+    Ridings,
+)
 from public_spend_tracker_pipeline.transform.model_reference import Functions, Jurisdictions
 from public_spend_tracker_pipeline.transform.model_sources import Sources
 from public_spend_tracker_pipeline.transform.model_spending import MunicipalTransfers, Spending
+from public_spend_tracker_pipeline.transform.staged_elections import (
+    source_id as elections_source_id,
+)
+from public_spend_tracker_pipeline.transform.staged_elections import (
+    staged_elections_transformer,
+)
 from public_spend_tracker_pipeline.transform.staged_statcan import (
     SourceChangedError,
     StagedStatCanTable,
@@ -104,6 +119,11 @@ FINGERPRINT_CHUNK_BYTES = 1024 * 1024
 # DuckDB's name for the in-memory database the build works in.
 DATABASE_ALIAS = "serving_database"
 IN_MEMORY_DATABASE = "memory"
+
+
+# Each source table or file, and the folders of its downloaded releases, oldest first.
+StatCanReleases = dict[StatCanTable, list[Path]]
+ElectionsReleases = dict[ElectionsFile, list[Path]]
 
 
 class BuildError(Exception):
@@ -154,39 +174,62 @@ class Build:
 # --- What to build ----------------------------------------------------------
 
 
-def find_releases(data_root: Path = DATA_ROOT) -> dict[StatCanTable, list[Path]]:
-    """Every complete download of every table, oldest first. Stops if a table has none."""
-    releases = {}
-    for table in STATCAN_TABLES:
-        table_folder = raw_table_folder(SOURCE_NAME, table.product_id, data_root)
-        dates = complete_releases(table_folder)
-        if not dates:
-            raise BuildError(
-                f"No complete download of table {table.product_id} {table.name} "
-                f"in {table_folder}. Run extract first."
-            )
-        releases[table] = [
-            raw_release_folder(SOURCE_NAME, table.product_id, release, data_root)
-            for release in dates
-        ]
-    return releases
+def find_releases(data_root: Path = DATA_ROOT) -> StatCanReleases:
+    """Every complete download of every Statistics Canada table. Stops if a table has none."""
+    return {
+        table: _release_folders(statcan.SOURCE_NAME, table.product_id, table.name, data_root)
+        for table in STATCAN_TABLES
+    }
 
 
-def latest_releases(releases: dict[StatCanTable, list[Path]]) -> list[tuple[StatCanTable, Path]]:
-    """Each table with the folder of its newest release."""
+def find_elections_releases(data_root: Path = DATA_ROOT) -> ElectionsReleases:
+    """Every complete download of every Elections Canada file. Stops if a file has none."""
+    return {
+        source_file: _release_folders(
+            elections.SOURCE_NAME, source_file.name, source_file.name, data_root
+        )
+        for source_file in ELECTIONS_FILES
+    }
+
+
+def _release_folders(source: str, table: str, name: str, data_root: Path) -> list[Path]:
+    """The folders of a table's complete downloads, oldest first. Stops if there are none."""
+    table_folder = raw_table_folder(source, table, data_root)
+    dates = complete_releases(table_folder)
+    if not dates:
+        label = name if table == name else f"{table} {name}"
+        raise BuildError(
+            f"No complete download of {source} {label} in {table_folder}. Run extract first."
+        )
+    return [raw_release_folder(source, table, release, data_root) for release in dates]
+
+
+def latest_releases[T](releases: dict[T, list[Path]]) -> list[tuple[T, Path]]:
+    """Each table or file with the folder of its newest release."""
     return [(table, folders[-1]) for table, folders in releases.items()]
 
 
-def staged_transformers(releases: dict[StatCanTable, list[Path]]) -> list[Transformer]:
-    """One staged transformer for every downloaded release of every table."""
+def staged_transformers(
+    releases: StatCanReleases, elections_releases: ElectionsReleases | None = None
+) -> list[Transformer]:
+    """One staged transformer for every downloaded release of every table and file."""
     return [
-        StagedStatCanTable(table, folder)
-        for table, folders in releases.items()
-        for folder in folders
+        *(
+            StagedStatCanTable(table, folder)
+            for table, folders in releases.items()
+            for folder in folders
+        ),
+        *(
+            staged_elections_transformer(source_file, folder)
+            for source_file, folders in (elections_releases or {}).items()
+            for folder in folders
+        ),
     ]
 
 
-def model_transformers(releases: dict[StatCanTable, list[Path]]) -> list[Transformer]:
+def model_transformers(
+    releases: StatCanReleases, elections_releases: ElectionsReleases | None = None
+) -> list[Transformer]:
     """The model transformers. The runner works out the order they run in."""
     return [
         Jurisdictions(),
@@ -194,7 +237,11 @@ def model_transformers(releases: dict[StatCanTable, list[Path]]) -> list[Transfo
         Spending(),
         MunicipalTransfers(),
         Context(),
-        Sources(latest_releases(releases)),
+        Ridings(),
+        Parties(),
+        ElectionDistricts(),
+        ElectionCandidates(),
+        Sources(latest_releases(releases), latest_releases(elections_releases or {})),
     ]
 
 
@@ -204,7 +251,7 @@ def model_transformers(releases: dict[StatCanTable, list[Path]]) -> list[Transfo
 def run_build(
     staged: Sequence[Transformer],
     model: Sequence[Transformer],
-    sources: Sequence[tuple[StatCanTable, Path]] = (),
+    sources: Sequence[tuple[StatCanTable | ElectionsFile, Path]] = (),
     build_id: str | None = None,
     data_root: Path = DATA_ROOT,
     serving: Serving | None = None,
@@ -290,7 +337,7 @@ def _stage(db: duckdb.DuckDBPyConnection, transformer: Transformer, build: Build
     except SourceChangedError as error:
         log.error(f"{SOURCE_CHANGED} {error}")
         raise BuildError(
-            f"Statistics Canada changed {transformer.name} (see {SOURCE_CHANGED} in the log)"
+            f"The source of {transformer.name} changed (see {SOURCE_CHANGED} in the log)"
         ) from None
 
     record = _check(db, transformer)
@@ -448,7 +495,7 @@ def file_sha256(path: Path) -> str:
 
 def _write_build_manifest(
     build: Build,
-    sources: Sequence[tuple[StatCanTable, Path]],
+    sources: Sequence[tuple[StatCanTable | ElectionsFile, Path]],
     database: Path,
     serving: Serving | None,
 ) -> None:
@@ -490,13 +537,17 @@ def _serving_entry(build: Build, serving: Serving | None) -> dict | None:
     }
 
 
-def _source_entry(table: StatCanTable, release_folder: Path) -> dict:
-    """One source table in the build manifest, from its download manifest."""
+def _source_entry(table: StatCanTable | ElectionsFile, release_folder: Path) -> dict:
+    """One source table or file in the build manifest, from its download manifest."""
     download = json.loads((release_folder / MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
+    if isinstance(table, ElectionsFile):
+        identifier, release = elections_source_id(table.name), download["release"]
+    else:
+        identifier, release = source_id(table.name), download["release_time"][:10]
     return {
-        "source_id": source_id(table.name),
+        "source_id": identifier,
         "table_name": table.name,
-        "release": download["release_time"][:10],
+        "release": release,
         "fetched_at": download["fetched_at"],
         "files": [
             {"name": file["name"], "language": file["language"], "sha256": file["sha256"]}
@@ -562,10 +613,11 @@ def build_everything(data_root: Path = DATA_ROOT) -> int:
     log_path = start_logging("build", build_id, data_root)
     try:
         releases = find_releases(data_root)
+        elections_releases = find_elections_releases(data_root)
         run_build(
-            staged_transformers(releases),
-            model_transformers(releases),
-            latest_releases(releases),
+            staged_transformers(releases, elections_releases),
+            model_transformers(releases, elections_releases),
+            [*latest_releases(releases), *latest_releases(elections_releases)],
             build_id,
             data_root=data_root,
             serving=Serving(),

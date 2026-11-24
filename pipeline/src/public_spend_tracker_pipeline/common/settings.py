@@ -8,6 +8,7 @@ address, table number or time limit.
 
 import os
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 # --- Where data lives -------------------------------------------------------
@@ -194,19 +195,26 @@ class ElectionsFile:
     Elections Canada has no API that reports release dates, so a new release
     is recognised by a change in the file's contents (see extract/elections.py).
 
-    name         Our short name for the file, used in folder names and logs.
-    purpose      Plain-English reason we use the file.
-    url          Where the file is downloaded from.
-    listing_url  The page that lists the file and states its licence.
-    licence      The licence it is published under (see the constants above).
-    licence_url  Where that licence is written down.
-    language     ENGLISH, FRENCH or ENGLISH_AND_FRENCH.
+    name             Our short name for the file, used in folder names, logs
+                     and as the name of its staged dataset.
+    purpose          Plain-English reason we use the file.
+    title_en         The file's official title, in English and French, as
+    title_fr         the listing page gives it.
+    url              Where the file is downloaded from.
+    listing_url      The page that lists the file and states its licence.
+    listing_url_fr   The same page in French.
+    licence          The licence it is published under (see the constants above).
+    licence_url      Where that licence is written down.
+    language         ENGLISH, FRENCH or ENGLISH_AND_FRENCH.
     """
 
     name: str
     purpose: str
+    title_en: str
+    title_fr: str
     url: str
     listing_url: str
+    listing_url_fr: str
     licence: str
     licence_url: str
     language: str
@@ -222,13 +230,22 @@ class ElectionsFile:
 # these entries to the open.canada.ca copy.
 GE45_RESULTS_URL = "https://www.elections.ca/res/rep/off/ovrGE45/62/data_donnees"
 GE45_RESULTS_PAGE = "https://www.elections.ca/res/rep/off/ovrGE45/home.html"
+GE45_RESULTS_PAGE_FR = "https://www.elections.ca/res/rep/off/ovrGE45/accueil.html"
+GE45_TITLE_EN = "45th General Election: Official Voting Results"
+GE45_TITLE_FR = "45e élection générale : Résultats officiels du scrutin"
+
+# The riding boundaries, listed on open.canada.ca (English and French).
+FEDERAL_ELECTORAL_DISTRICTS_DATASET = "18bf3ea7-1940-46ec-af52-9ba3f77ed708"
 
 ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
     ElectionsFile(
         name="federal_electoral_districts",
         purpose="Boundaries of the 343 federal ridings (2023 Representation Order), for the map",
+        title_en="Federal Electoral Districts - Canada 2023",
+        title_fr="Circonscriptions fédérales - Canada 2023",
         url="https://www.elections.ca/res/cir/mapsCorner/edb/FederalElectoralDistricts_SHP.zip",
-        listing_url="https://open.canada.ca/data/en/dataset/18bf3ea7-1940-46ec-af52-9ba3f77ed708",
+        listing_url=f"https://open.canada.ca/data/en/dataset/{FEDERAL_ELECTORAL_DISTRICTS_DATASET}",
+        listing_url_fr=f"https://ouvert.canada.ca/data/fr/dataset/{FEDERAL_ELECTORAL_DISTRICTS_DATASET}",
         licence=OPEN_GOVERNMENT_LICENCE,
         licence_url=OPEN_GOVERNMENT_LICENCE_URL,
         language=ENGLISH_AND_FRENCH,
@@ -236,8 +253,11 @@ ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
     ElectionsFile(
         name="ge45_results_by_district",
         purpose="2025 election: electors, ballots cast and turnout in each riding",
+        title_en=f"{GE45_TITLE_EN} - Table 11: Voting results by electoral district",
+        title_fr=f"{GE45_TITLE_FR} - Tableau 11 : Résultats du scrutin par circonscription",
         url=f"{GE45_RESULTS_URL}/table_tableau11.csv",
         listing_url=GE45_RESULTS_PAGE,
+        listing_url_fr=GE45_RESULTS_PAGE_FR,
         licence=ELECTIONS_CANADA_TERMS,
         licence_url=ELECTIONS_CANADA_TERMS_URL,
         language=ENGLISH_AND_FRENCH,
@@ -245,13 +265,132 @@ ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
     ElectionsFile(
         name="ge45_results_by_candidate",
         purpose="2025 election: votes for every candidate in each riding, and who was elected",
+        title_en=(
+            f"{GE45_TITLE_EN} - Table 12: List of candidates by electoral district "
+            "and individual results"
+        ),
+        title_fr=(
+            f"{GE45_TITLE_FR} - Tableau 12 : Liste des candidats par circonscription "
+            "et résultats individuels"
+        ),
         url=f"{GE45_RESULTS_URL}/table_tableau12.csv",
         listing_url=GE45_RESULTS_PAGE,
+        listing_url_fr=GE45_RESULTS_PAGE_FR,
         licence=ELECTIONS_CANADA_TERMS,
         licence_url=ELECTIONS_CANADA_TERMS_URL,
         language=ENGLISH_AND_FRENCH,
     ),
 )
+
+
+# Name of the staged dataset holding the riding boundaries' names and numbers.
+RIDING_BOUNDARIES_DATASET = "federal_electoral_districts"
+
+# How many ridings the 2023 Representation Order created. The build stops if
+# the boundary file or a general election's results have a different number.
+RIDING_COUNT = 343
+
+# The first two digits of a riding's number are its province or territory's
+# Standard Geographical Classification code (Statistics Canada's code for it):
+# 35105 is in Ontario (35). This is each code's jurisdiction (see JURISDICTIONS).
+JURISDICTION_BY_GEOGRAPHIC_CODE = {
+    "10": "nl", "11": "pe", "12": "ns", "13": "nb", "24": "qc", "35": "on", "46": "mb",
+    "47": "sk", "48": "ab", "59": "bc", "60": "yt", "61": "nt", "62": "nu",
+}  # fmt: skip
+
+
+@dataclass(frozen=True)
+class Election:
+    """One federal election whose official results we use.
+
+    code               Our short ID, used in the data and page addresses.
+    name_en, name_fr   Its name in English and French.
+    voting_day         The day of the vote.
+    general            True for a general election (every riding votes),
+                       False for a by-election (a few ridings).
+    districts_dataset  The staged datasets holding its results by riding
+    candidates_dataset and by candidate (see ELECTIONS_FILES).
+    """
+
+    code: str
+    name_en: str
+    name_fr: str
+    voting_day: date
+    general: bool
+    districts_dataset: str
+    candidates_dataset: str
+
+
+ELECTIONS: tuple[Election, ...] = (
+    Election(
+        code="ge45",
+        name_en="45th general election",
+        name_fr="45e élection générale",
+        voting_day=date(2025, 4, 28),
+        general=True,
+        districts_dataset="ge45_results_by_district",
+        candidates_dataset="ge45_results_by_candidate",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class Party:
+    """A party (or Independent, or No affiliation) a candidate can stand for.
+
+    code      Our ID, used in the data and page addresses, e.g. "ndp".
+    label     Exactly how Elections Canada's results write it, after the
+              candidate's name: "Paul Connors Liberal/Libéral". English, then
+              French. The part before "/" is the English name, the part after
+              the French one.
+    short_en  A short name for tight spaces such as legends, e.g. "NDP".
+    short_fr  The same in French, e.g. "NPD".
+
+    If a results file names a party not listed here, the build stops and says
+    which, so a new party is added on purpose rather than guessed at.
+    """
+
+    code: str
+    label: str
+    short_en: str
+    short_fr: str
+
+    @property
+    def name_en(self) -> str:
+        return self.label.split("/")[0]
+
+    @property
+    def name_fr(self) -> str:
+        return self.label.split("/")[1]
+
+
+# Every label in the 2025 general election's results, largest parties first.
+PARTIES: tuple[Party, ...] = (
+    Party("liberal", "Liberal/Libéral", "Liberal", "Libéral"),
+    Party("conservative", "Conservative/Conservateur", "Conservative", "Conservateur"),
+    Party("bloc", "Bloc Québécois/Bloc Québécois", "Bloc", "Bloc"),
+    Party("ndp", "NDP-New Democratic Party/NPD-Nouveau Parti démocratique", "NDP", "NPD"),
+    Party("green", "Green Party/Parti Vert", "Green", "Vert"),
+    Party("ppc", "People's Party - PPC/Parti populaire - PPC", "PPC", "PPC"),
+    Party("christian_heritage", "Christian Heritage Party/Parti de l'Héritage Chrétien",
+          "Christian Heritage", "Héritage chrétien"),
+    Party("communist", "Communist/Communiste", "Communist", "Communiste"),
+    Party("marxist_leninist", "Marxist-Leninist/Marxiste-Léniniste",
+          "Marxist-Leninist", "Marxiste-léniniste"),
+    Party("libertarian", "Libertarian/Libertarien", "Libertarian", "Libertarien"),
+    Party("canadian_future", "Canadian Future Party/Parti Avenir Canadien",
+          "Canadian Future", "Avenir canadien"),
+    Party("centrist", "Centrist/Centriste", "Centrist", "Centriste"),
+    Party("united", "United Party of Canada (UP)/Parti Uni du Canada (UP)", "United", "Uni"),
+    Party("rhinoceros", "Parti Rhinocéros Party/Parti Rhinocéros Party",
+          "Rhinoceros", "Rhinocéros"),
+    Party("animal_protection", "Animal Protection Party/Parti Protection Animaux",
+          "Animal Protection", "Protection animaux"),
+    Party("marijuana", "Marijuana Party/Parti Marijuana", "Marijuana", "Marijuana"),
+    Party("independent", "Independent/Indépendant(e)", "Independent", "Indépendant(e)"),
+    Party("no_affiliation", "No Affiliation/Aucune appartenance",
+          "No affiliation", "Aucune appartenance"),
+)  # fmt: skip
 
 
 # --- The governments we cover -----------------------------------------------

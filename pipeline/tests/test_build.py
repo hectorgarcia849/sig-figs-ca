@@ -172,7 +172,7 @@ def test_failed_check_stops_the_build_and_saves_nothing(tmp_path, log_text):
 
 def test_source_change_is_logged_and_stops_the_build(tmp_path, log_text):
     changed = [Numbers(OLDER), Numbers(NEWER, changed=True)]
-    with pytest.raises(BuildError, match="Statistics Canada changed numbers"):
+    with pytest.raises(BuildError, match="The source of numbers changed"):
         run_build(changed, [Totals()], build_id=BUILD_ID, data_root=tmp_path)
 
     assert saved_items(tmp_path) == []

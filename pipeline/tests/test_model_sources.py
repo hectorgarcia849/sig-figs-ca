@@ -7,7 +7,12 @@ import duckdb
 import pytest
 
 from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME
-from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatCanTable
+from public_spend_tracker_pipeline.common.settings import (
+    ELECTIONS_FILES,
+    ENGLISH,
+    FRENCH,
+    StatCanTable,
+)
 from public_spend_tracker_pipeline.transform.base import sql_table
 from public_spend_tracker_pipeline.transform.model_sources import Sources, table_number
 
@@ -34,13 +39,20 @@ def write_manifest(folder, table, release_time, fetched_at):
     return folder
 
 
-def make_figures(db, extra_rows=()):
-    """Made-up spending, municipal_transfers and context tables, as the checks read them."""
+def make_figures(db, extra_rows=(), elections_rows=()):
+    """Made-up tables with source_id and release columns, as the checks read them.
+
+    The election datasets are empty unless elections_rows are given.
+    """
     used = [("statcan-10100005", date(2025, 11, 27))]
     for name in ("spending", "municipal_transfers"):
         db.sql(f"CREATE TABLE {name} AS {sql_table(['source_id', 'release'], used)}")
     context = [("statcan-18100004", date(2026, 10, 19)), *extra_rows]
     db.sql(f"CREATE TABLE context AS {sql_table(['source_id', 'release'], context)}")
+    for name in ("ridings", "election_districts", "election_candidates"):
+        db.sql(f"CREATE TABLE {name} (source_id VARCHAR, release DATE)")
+        if elections_rows:
+            db.sql(f"INSERT INTO {name} {sql_table(['source_id', 'release'], elections_rows)}")
 
 
 @pytest.fixture
@@ -114,3 +126,30 @@ def test_figure_without_a_listed_source_fails_the_check(releases, unlisted):
         "sources: every figure's source and release is listed"
     ]
     assert unlisted[0] in failed[0].detail
+
+
+def test_elections_canada_file_has_its_licence_and_no_table_number(tmp_path, releases):
+    results_file = next(f for f in ELECTIONS_FILES if f.name == "ge45_results_by_candidate")
+    folder = tmp_path / "elections"
+    folder.mkdir()
+    manifest = {
+        "release": "2026-11-24",
+        "fetched_at": "2026-11-24T04:49:47+00:00",
+        "licence": "Elections Canada terms",
+        "licence_url": "https://www.elections.ca/terms",
+        "files": [{"name": "table_tableau12.csv", "language": "en,fr", "sha256": "abc"}],
+    }
+    (folder / MANIFEST_FILE_NAME).write_text(json.dumps(manifest), encoding="utf-8")
+    db = duckdb.connect()
+    make_figures(db, elections_rows=[("elections-ge45_results_by_candidate", date(2026, 11, 24))])
+
+    sources = Sources(releases, [(results_file, folder)])
+    sources.transform(db).create(sources.name)
+
+    assert all(result.passed for result in sources.checks(db))
+    row = db.sql("""
+        SELECT publisher, table_number, doi, sha256_en, sha256_fr, licence, url_fr
+        FROM sources WHERE source_id = 'elections-ge45_results_by_candidate'
+    """).fetchall()
+    assert row == [("Elections Canada", None, None, "abc", "abc", "Elections Canada terms",
+                    "https://www.elections.ca/res/rep/off/ovrGE45/accueil.html")]  # fmt: skip

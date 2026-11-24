@@ -21,17 +21,17 @@ export interface Meta {
 	sources: Source[];
 }
 
-/** One Statistics Canada table behind the figures. */
+/** One Statistics Canada table or Elections Canada file behind the figures. */
 export interface Source {
-	source_id: string; // e.g. "statcan-10100005"
+	source_id: string; // e.g. "statcan-10100005", "elections-ge45_results_by_candidate"
 	publisher: string;
-	table_number: string; // e.g. "10-10-0005-01"
+	table_number: string | null; // e.g. "10-10-0005-01"; Elections Canada files have none
 	title_en: string;
 	title_fr: string;
 	release: string; // e.g. "2025-11-27"
 	url_en: string;
 	url_fr: string;
-	doi: string;
+	doi: string | null; // Elections Canada files have none
 	licence: string;
 	licence_url: string;
 }

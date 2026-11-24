@@ -29,14 +29,22 @@
 		<ul>
 			{#each data.sources as source (source.source_id)}
 				<li>
-					<!-- External links to Statistics Canada, not pages of this site. -->
+					<!-- External links to Statistics Canada and Elections Canada, not pages of this site. -->
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 					<a href={data.lang === 'en' ? source.url_en : source.url_fr}
-						>{source.table_number}: {data.lang === 'en' ? source.title_en : source.title_fr}</a
+						>{source.table_number ? `${source.table_number}: ` : ''}{data.lang === 'en'
+							? source.title_en
+							: source.title_fr}</a
 					>
-					({m.releasedOn(formatDate(source.release, data.lang))}, {m.doi}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<a href={source.doi}>{source.doi}</a>)
+					({m.releasedOn(formatDate(source.release, data.lang))},
+					{#if source.doi}
+						{m.doi}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+						<a href={source.doi}>{source.doi}</a>)
+					{:else}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+						<a href={source.licence_url}>{m.termsOfUse}</a>)
+					{/if}
 				</li>
 			{/each}
 		</ul>

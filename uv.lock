@@ -140,6 +140,7 @@ dependencies = [
     { name = "certifi" },
     { name = "duckdb" },
     { name = "httpx" },
+    { name = "pyshp" },
 ]
 
 [package.metadata]
@@ -147,6 +148,7 @@ requires-dist = [
     { name = "certifi", specifier = ">=2024.2.2" },
     { name = "duckdb", specifier = ">=2.0" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "pyshp", specifier = ">=3.0" },
 ]
 
 [[package]]
@@ -156,6 +158,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/49/2e/ced460408999b33da6b31b0021b0f37d329e202d4169aeb164493778f25b/pygments-2.21.0.tar.gz", hash = "sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c", size = 5005329, upload-time = "2026-08-17T08:02:48.824Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl", hash = "sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9", size = 1250147, upload-time = "2026-08-17T08:02:44.912Z" },
+]
+
+[[package]]
+name = "pyshp"
+version = "3.1.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/e5/1e72c0eca21dfd63a22dfd774931d28d1a7d02ca4b61e7530d54923054d2/pyshp-3.1.9.tar.gz", hash = "sha256:7a4ac6c0898f54d09a7f75c8494c05a2ed86964010f27a8a7df9c7ecb6738569", size = 2271763, upload-time = "2026-11-16T19:53:36.389Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/ae/7154308ae637e32530b93575fd815a210f805c79097b7e47a51b98c75bae/pyshp-3.1.9-py3-none-any.whl", hash = "sha256:e20febdaaef14d153f7eabfb8143edfcf61ca6d454f20ba214076dc994901db1", size = 75090, upload-time = "2026-11-16T19:53:34.993Z" },
 ]
 
 [[package]]

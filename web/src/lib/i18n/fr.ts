@@ -28,6 +28,7 @@ export const fr: Messages = {
 	licenceUrl: 'https://ouvert.canada.ca/fr/licence-du-gouvernement-ouvert-canada',
 	sourceTables: 'Tableaux sources',
 	doi: 'DOI',
+	termsOfUse: 'conditions d’utilisation',
 
 	measure: 'Mesure',
 	year: 'Année',
