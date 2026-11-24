@@ -12,7 +12,8 @@ github_owner_id      = "12345678"
 # Optional: change the free address (https://<site_id>.web.app).
 # site_id = "public-spend-tracker"
 
-# Optional: a domain you own, once you have one.
+# Optional: a domain you own, once you have one. www.<domain> redirects to it
+# unless redirect_www = false.
 # custom_domain = "example.ca"
 
 # For the monthly budget alert: the billing account the project is linked to

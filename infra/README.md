@@ -1,15 +1,18 @@
 # infra: the site's home on Google Cloud
 
 Terraform sets up Firebase Hosting in your Google Cloud project; `deploy.sh`
-puts the site on it. Until there is a custom domain, the site is published at
-its free address, `https://<site_id>.web.app` (`public-spend-tracker` by default).
+puts the site on it. The site is published at its custom domain
+(`custom_domain`, e.g. sigfigs.ca), with `www.` redirecting to it
+(`redirect_www`). Without a custom domain, it is published at its free
+address, `https://<site_id>.web.app` (`public-spend-tracker` by default),
+which keeps working either way.
 
 ## What Terraform makes
 
 | File           | What                                                                  |
 | -------------- | --------------------------------------------------------------------- |
 | `storage.tf`   | the private data bucket (`<project>-data`): the permanent copy of `data/`, kept forever, with a year of old versions |
-| `main.tf`      | services switched on, Firebase added, the Hosting site, an optional custom domain, a monthly budget alert |
+| `main.tf`      | services switched on, Firebase added, the Hosting site, an optional custom domain and its www redirect, a monthly budget alert |
 | `github.tf`    | keyless sign-in for GitHub Actions, and its two robot accounts: `pipeline` (read the bucket, add files) and `release` (the same, and replace the approval file) |
 | `variables.tf` | the settings: project, site name, custom domain, billing account, budget amount, GitHub repository |
 | `outputs.tf`   | the site's name and address (read by `deploy.sh`), DNS records for a custom domain, the GitHub variables (`github_variables`) |
@@ -66,13 +69,27 @@ The preview address lasts 30 days. `deploy-live` publishes exactly what you
 reviewed, without building again. To roll back, approve the earlier build and
 release it the same way.
 
-## Adding a domain later
+## Adding a domain
 
 1. Buy the domain.
-2. Set `custom_domain = "example.ca"` in `terraform.tfvars` and run `just infra-apply`.
+2. Set `custom_domain = "example.ca"` in `terraform.tfvars` and run
+   `just infra-apply`. This also sets up `www.example.ca` to redirect to it;
+   set `redirect_www = false` to leave www out.
+
+   If you already added the domain in the Firebase console, tell Terraform
+   about it first, so it takes it over instead of making a second one:
+
+   ```bash
+   terraform -chdir=infra import 'google_firebase_hosting_custom_domain.domain[0]' \
+     projects/<project-id>/sites/<site_id>/customDomains/example.ca
+   ```
+
 3. Add the records from `terraform -chdir=infra output custom_domain_dns_records`
-   at your registrar. Firebase sets up HTTPS once it sees them (this can take a
-   few hours).
-4. Run `just deploy-preview` and `just deploy-live`, so the pages' links to
-   themselves (for search engines) use the new address. The web.app address
-   keeps working.
+   at your registrar. The list can take a minute to fill in after the apply;
+   until it does, `just infra-plan` shows it under "Changes to Outputs".
+   Firebase sets up HTTPS once it sees them (this can take a few hours).
+4. Set the `SITE_URL` repository variable to the new address
+   (`terraform -chdir=infra output -raw site_url`), then release the site once
+   (Run workflow with "Preview the site" ticked, or `just deploy-preview` and
+   `just deploy-live`), so the pages' links to themselves (for search engines)
+   use the new address. The web.app address keeps working.

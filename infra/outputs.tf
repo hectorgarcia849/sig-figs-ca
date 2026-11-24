@@ -16,8 +16,11 @@ output "site_url" {
 }
 
 output "custom_domain_dns_records" {
-  description = "The DNS records to add at your registrar for the custom domain (empty without one)."
-  value       = var.custom_domain == null ? [] : google_firebase_hosting_custom_domain.domain[0].required_dns_updates
+  description = "The DNS records to add at your registrar for the custom domain and its www redirect (empty without one)."
+  value = concat(
+    [for domain in google_firebase_hosting_custom_domain.domain : domain.required_dns_updates],
+    [for domain in google_firebase_hosting_custom_domain.www : domain.required_dns_updates],
+  )
 }
 
 output "data_bucket" {

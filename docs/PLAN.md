@@ -275,9 +275,11 @@ can only add files to the data bucket, and only the release one can change
 the approval. By hand, the same release is `pst approve`,
 `just deploy-preview` and `just deploy-live`.
 
-The site is at its free `web.app` address until its domain, sigfigs.ca
-(bought 2026-11-19), is connected; Terraform's `custom_domain` setting then
-manages it without changing anything else.
+The site is at https://sigfigs.ca (bought 2026-11-19, live 2026-11-24), with
+www.sigfigs.ca redirecting to it; both are managed by Terraform
+(`custom_domain`, `redirect_www`). The free `web.app` address keeps working,
+but every page names sigfigs.ca as its address, so search engines list it
+there.
 
 ### Hosting and cost (Google Cloud, `us-central1`)
 
@@ -321,7 +323,6 @@ ESLint, Prettier, Vitest, Playwright (with axe accessibility checks) for the web
 - Sign-in with Google or Facebook accounts (wanted later; brings personal
   information, so Quebec's privacy law duties, a privacy contact and an
   updated privacy page; the site would no longer be purely static)
-- A custom domain (the site uses its free web.app address until one is bought)
 - Monitoring: uptime checks, error reporting
 - Visual identity: typography, colours, chart style guide
 - Security basics: dependency updates, least-privilege service accounts

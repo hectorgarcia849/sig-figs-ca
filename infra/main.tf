@@ -3,7 +3,8 @@
 #   services       the Google Cloud services this setup uses, switched on
 #   firebase       Firebase added to the project
 #   site           the Firebase Hosting site (free address: <site_id>.web.app)
-#   custom domain  only when var.custom_domain is set
+#   custom domain  only when var.custom_domain is set, with www.<domain>
+#                  redirecting to it (unless var.redirect_www is false)
 #   budget         an email alert if monthly spending passes var.monthly_budget
 #                  (only when var.billing_account is set)
 #
@@ -68,6 +69,20 @@ resource "google_firebase_hosting_custom_domain" "domain" {
 
   # Do not wait for the DNS records: they are added by hand at the registrar,
   # after Terraform lists them.
+  wait_dns_verification = false
+}
+
+# www.<domain> sends visitors to the domain itself, keeping the rest of the
+# address (www.example.ca/en goes to example.ca/en).
+resource "google_firebase_hosting_custom_domain" "www" {
+  provider = google-beta
+  count    = var.custom_domain != null && var.redirect_www ? 1 : 0
+
+  project         = google_firebase_project.this.project
+  site_id         = google_firebase_hosting_site.site.site_id
+  custom_domain   = "www.${var.custom_domain}"
+  redirect_target = var.custom_domain
+
   wait_dns_verification = false
 }
 

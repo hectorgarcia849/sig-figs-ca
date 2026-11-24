@@ -32,6 +32,12 @@ variable "custom_domain" {
   default     = null
 }
 
+variable "redirect_www" {
+  description = "Whether www.<custom_domain> redirects to the custom domain (only with a custom domain)."
+  type        = bool
+  default     = true
+}
+
 variable "billing_account" {
   description = <<-EOT
     The billing account the project is linked to, e.g. "012345-6789AB-CDEF01"

@@ -7,9 +7,9 @@ figure links to its source.
 See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 **Status:** step 1 (local pipeline) and step 2 (the public site, in English
-and French) are complete. The site is ready to publish on Firebase Hosting at a
-free web.app address (see [infra/README.md](infra/README.md)); a custom domain
-can be added later. Step 3's Compare page is built (from data files made with
+and French) are complete. The site is published on Firebase Hosting at
+https://sigfigs.ca, with www.sigfigs.ca redirecting to it (see
+[infra/README.md](infra/README.md)). Step 3's Compare page is built (from data files made with
 the site; the API is deferred until it is needed). Step 4, automation, is
 under way: GitHub Actions checks for new data every weekday and releases after
 approval (see [.github/workflows/README.md](.github/workflows/README.md)).
