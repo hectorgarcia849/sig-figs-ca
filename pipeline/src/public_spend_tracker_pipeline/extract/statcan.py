@@ -30,8 +30,10 @@ Run it on its own from the repository root with:
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import logging
+import re
 import shutil
 import sys
 import tempfile
@@ -75,6 +77,16 @@ DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 
 # The status Statistics Canada's API reports when a request worked.
 STATCAN_SUCCESS = "SUCCESS"
+
+# Every table download is a zip file, and every zip file starts with these bytes.
+ZIP_SIGNATURE = b"PK\x03\x04"
+
+# Added to the error when Statistics Canada sends a web page instead of data:
+# usually its "website is currently unavailable" page, during maintenance.
+WEB_PAGE_HINT = "Its site may be down for maintenance: try again later."
+
+# The most of a web page's title quoted in an error.
+MAX_TITLE_CHARACTERS = 120
 
 
 class StatCanError(Exception):
@@ -157,7 +169,8 @@ def fetch_table_details(client: httpx.Client, product_id: str) -> TableDetails:
         json=[{"productId": int(product_id)}],
     )
     response.raise_for_status()
-    table = _unwrap(response.json()[0], f"the details of table {product_id}")
+    what = f"the details of table {product_id}"
+    table = _unwrap(_read_answer(response, what)[0], what)
     try:
         return TableDetails(
             product_id=product_id,
@@ -178,7 +191,35 @@ def fetch_download_url(client: httpx.Client, product_id: str, language: str) -> 
     """Ask Statistics Canada for the link to a table's full download in one language."""
     response = client.get(f"{STATCAN_API_URL}/getFullTableDownloadCSV/{product_id}/{language}")
     response.raise_for_status()
-    return _unwrap(response.json(), f"a download link for table {product_id} ({language})")
+    what = f"a download link for table {product_id} ({language})"
+    return _unwrap(_read_answer(response, what), what)
+
+
+def _read_answer(response: httpx.Response, what: str):
+    """Read a Statistics Canada answer as data, or raise a clear error if it is not.
+
+    When their site is down, the API answers with a web page (and a "worked"
+    status code) instead of data.
+    """
+    try:
+        return response.json()
+    except json.JSONDecodeError:
+        raise StatCanError(_web_page_error(response.text, what)) from None
+
+
+def _web_page_error(page: str, what: str) -> str:
+    """The error for a web page received instead of something we asked for.
+
+    For example: 'Statistics Canada sent a web page ("We're sorry! The website
+    is currently unavailable") instead of table 10100005. Its site may be down
+    for maintenance: try again later.'
+    """
+    found = re.search(r"<title>(.*?)</title>", page, re.IGNORECASE | re.DOTALL)
+    title = " ".join(html.unescape(found.group(1)).split()) if found else ""
+    if len(title) > MAX_TITLE_CHARACTERS:
+        title = title[:MAX_TITLE_CHARACTERS].rstrip() + "…"
+    shown = f' ("{title}")' if title else ""
+    return f"Statistics Canada sent a web page{shown} instead of {what}. {WEB_PAGE_HINT}"
 
 
 def _unwrap(answer: dict, what: str):
@@ -196,7 +237,11 @@ def _unwrap(answer: dict, what: str):
 
 
 def download_file(client: httpx.Client, url: str, folder: Path, language: str) -> DownloadedFile:
-    """Download one file into a folder, fingerprinting it as it arrives."""
+    """Download one zip file into a folder, fingerprinting it as it arrives.
+
+    Raises StatCanError if what arrives is not a zip file (for example their
+    maintenance page), so it is never saved as a release.
+    """
     name = url.rsplit("/", 1)[-1]
     fingerprint = hashlib.sha256()
     size_bytes = 0
@@ -204,6 +249,9 @@ def download_file(client: httpx.Client, url: str, folder: Path, language: str) -
         response.raise_for_status()
         with open(folder / name, "wb") as file:
             for chunk in response.iter_bytes(DOWNLOAD_CHUNK_BYTES):
+                if size_bytes == 0 and not chunk.startswith(ZIP_SIGNATURE):
+                    page = chunk.decode("utf-8", errors="replace")
+                    raise StatCanError(_web_page_error(page, f"the zip file {name}"))
                 file.write(chunk)
                 fingerprint.update(chunk)
                 size_bytes += len(chunk)

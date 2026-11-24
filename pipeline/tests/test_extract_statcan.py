@@ -16,6 +16,7 @@ from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatC
 from public_spend_tracker_pipeline.extract.statcan import (
     METADATA_FILE_NAME,
     SOURCE_NAME,
+    ZIP_SIGNATURE,
     StatCanError,
     extract_all,
     extract_table,
@@ -31,14 +32,30 @@ RELEASE_TIME = "2025-11-27T08:30"
 RELEASE_FOLDER = "release=2025-11-27"
 FILE_SUFFIX = {ENGLISH: "eng", FRENCH: "fra"}
 
+# Statistics Canada's page while its site is down, shortened.
+MAINTENANCE_PAGE = (
+    "<!DOCTYPE html>\n<html><head>\n<title>Statistics Canada - We&#39;re sorry! "
+    "The website is currently unavailable</title>\n</head><body>...</body></html>"
+)
+
 
 class FakeStatCan:
     """Stands in for Statistics Canada's servers and records what was requested."""
 
-    def __init__(self, release_time=RELEASE_TIME, details_status="SUCCESS", fail_downloads=False):
+    def __init__(
+        self,
+        release_time=RELEASE_TIME,
+        details_status="SUCCESS",
+        fail_downloads=False,
+        site_down=False,
+        site_down_for_downloads=False,
+    ):
         self.release_time = release_time
         self.details_status = details_status
         self.fail_downloads = fail_downloads
+        # Answer every request (site_down) or only downloads with the maintenance page.
+        self.site_down = site_down
+        self.site_down_for_downloads = site_down_for_downloads
         self.downloaded_paths: list[str] = []
 
     def client(self) -> httpx.Client:
@@ -46,14 +63,17 @@ class FakeStatCan:
 
     @staticmethod
     def file_content(name: str) -> bytes:
-        return f"zip contents of {name}".encode()
+        return ZIP_SIGNATURE + f"zip contents of {name}".encode()
 
     def answer(self, request: httpx.Request) -> httpx.Response:
 
         path = request.url.path
         response = httpx.Response(404, json={"status": "FAILED", "object": "Not found"})
 
-        if path.endswith("/getCubeMetadata"):
+        if self.site_down:
+            response = httpx.Response(200, html=MAINTENANCE_PAGE)
+
+        elif path.endswith("/getCubeMetadata"):
             if self.details_status != "SUCCESS":
                 response = httpx.Response(
                     200, json=[{"status": "FAILED", "object": "No such table"}]
@@ -82,6 +102,8 @@ class FakeStatCan:
 
             if self.fail_downloads:
                 response = httpx.Response(500)
+            elif self.site_down_for_downloads:
+                response = httpx.Response(200, html=MAINTENANCE_PAGE)
             else:
                 response = httpx.Response(200, content=self.file_content(path.rsplit("/", 1)[-1]))
 
@@ -147,3 +169,24 @@ def test_error_from_statcan_names_the_table(tmp_path):
 
     with pytest.raises(StatCanError, match="10100005.*No such table"):
         extract_table(fake.client(), TABLE, data_root=tmp_path)
+
+
+def test_site_down_is_a_clear_failure_for_each_table(tmp_path):
+    results = extract_all(FakeStatCan(site_down=True).client(), (TABLE,), data_root=tmp_path)
+
+    assert results[0].status == "failed"
+    assert results[0].message == (
+        "Statistics Canada sent a web page (\"Statistics Canada - We're sorry! The website is "
+        'currently unavailable") instead of the details of table 10100005. '
+        "Its site may be down for maintenance: try again later."
+    )
+
+
+def test_web_page_instead_of_zip_file_is_never_saved(tmp_path):
+    fake = FakeStatCan(site_down_for_downloads=True)
+
+    results = extract_all(fake.client(), (TABLE,), data_root=tmp_path)
+
+    assert results[0].status == "failed"
+    assert "instead of the zip file 10100005-eng.zip" in results[0].message
+    assert list(raw_table_folder(SOURCE_NAME, TABLE.product_id, tmp_path).iterdir()) == []
