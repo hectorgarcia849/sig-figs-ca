@@ -18,6 +18,7 @@ from public_spend_tracker_pipeline.transform.model_context import (
     GDP_PRICES,
     GDP_SEASONAL_ADJUSTMENT,
     Context,
+    _exact_sum,
 )
 
 RELEASE = date(2026, 10, 19)
@@ -213,3 +214,11 @@ def test_provincial_gdp_fiscal_year_is_blended(built):
 def test_provincial_gdp_without_next_year_is_partial(built):
     assert value(built, "yt", "gdp", "fiscal", 2024) == (20e6, "partial")
     assert value(built, "yt", "gdp", "fiscal", 2023) == (pytest.approx(12.5e6), "blended")
+
+
+def test_months_and_quarters_are_added_up_exactly():
+    # Ten 0.1s add up to 0.9999999999999999 in ordinary floating point; exactly, to 1.
+    db = duckdb.connect()
+    db.sql("CREATE TABLE t AS SELECT 0.1::DOUBLE AS v FROM range(10)")
+    assert db.sql(f"SELECT {_exact_sum('v')} FROM t").fetchall()[0][0] == 1.0
+    assert db.sql("SELECT sum(v) FROM t").fetchall()[0][0] != 1.0

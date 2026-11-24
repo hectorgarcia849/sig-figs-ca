@@ -23,7 +23,9 @@ from public_spend_tracker_pipeline.common.paths import (
     STAGED,
 )
 from public_spend_tracker_pipeline.transform.base import (
+    WHOLE,
     CheckResult,
+    Layout,
     Transformer,
     expect_no_rows,
     has_rows,
@@ -63,6 +65,7 @@ class Totals(Transformer):
     description = "Sum of the numbers in each release"
     stage = MODEL
     inputs = ("numbers",)
+    layout = Layout(keys=("release",), values={"total": WHOLE})
 
     def transform(self, db):
         return db.sql("SELECT release, sum(n) AS total FROM numbers GROUP BY release")
@@ -73,6 +76,7 @@ class Doubled(Transformer):
     description = "Each total times two"
     stage = MODEL
     inputs = ("totals",)
+    layout = Layout(keys=("release",), values={"doubled": WHOLE})
 
     def __init__(self, fail_check: bool = False):
         self.fail_check = fail_check
@@ -151,14 +155,15 @@ def test_manifest_records_datasets_checks_and_fingerprints(tmp_path, log_text):
     assert doubled["rows"] == 2
     assert doubled["inputs"] == ["totals"]
     assert doubled["checks"] == [
-        {"name": "doubled: under the limit", "passed": True, "detail": "no bad rows"}
+        {"name": "doubled: under the limit", "passed": True, "detail": "no bad rows"},
+        {"name": "doubled: layout names every column once", "passed": True, "detail": "2 columns"},
     ]
     assert doubled["sha256"] == file_sha256(tmp_path / doubled["file"])
     assert manifest["database"]["sha256"] == file_sha256(tmp_path / manifest["database"]["file"])
 
 
 def test_failed_check_stops_the_build_and_saves_nothing(tmp_path, log_text):
-    with pytest.raises(BuildError, match="1 of 1 checks failed for doubled"):
+    with pytest.raises(BuildError, match="1 of 2 checks failed for doubled"):
         run_build(staged(), [Totals(), Doubled(fail_check=True)], BUILD_ID, data_root=tmp_path)
 
     assert saved_items(tmp_path) == []

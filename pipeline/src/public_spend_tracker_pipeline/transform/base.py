@@ -6,6 +6,8 @@ A transformer produces one dataset. It declares:
     description  one plain-English line, shown in logs and the build record
     stage        paths.STAGED or paths.MODEL: tells the runner where to save it
     inputs       the datasets it reads, e.g. ("cofog_consolidated",)
+    layout       model datasets only: what each column is (see Layout), so
+                 two builds can be compared table by table (release/compare.py)
 
 and has two methods:
 
@@ -33,6 +35,7 @@ Example:
         description = "Every government we cover, with English and French names"
         stage = MODEL
         inputs = ("cofog_consolidated",)
+        layout = Layout(keys=("code",), tracked=("name_en", "name_fr"))
 
         def transform(self, db):
             return db.sql('''
@@ -42,7 +45,7 @@ Example:
 
         def checks(self, db):
             return [
-                no_duplicate_keys(db, self.name, ["code"]),
+                no_duplicate_keys(db, self.name, self.layout.keys),
                 no_missing_values(db, self.name, ["name_en", "name_fr"]),
             ]
 """
@@ -50,14 +53,18 @@ Example:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import date
 
 import duckdb
 
 # How many bad rows a failed check shows as examples.
 MAX_EXAMPLE_ROWS = 3
+
+# How a number column is compared between two builds (see Layout.values).
+WHOLE = "whole"  # whole numbers, e.g. dollars: any difference is a real change
+DECIMAL = "decimal"  # numbers with decimals, e.g. a price index: tiny rounding differences are not
 
 
 @dataclass(frozen=True)
@@ -72,6 +79,39 @@ class CheckResult:
     name: str
     passed: bool
     detail: str
+
+
+@dataclass(frozen=True)
+class Layout:
+    """What each column of a model dataset is, so two builds can be compared.
+
+    Every column belongs to exactly one of the first four groups (a check in
+    every build makes sure of it), so a new column cannot slip past a review.
+
+    keys     the columns that identify a row, e.g. ("jurisdiction", "fiscal_year")
+    values   the numbers, each compared as WHOLE (any difference is a real
+             change) or DECIMAL (differences too small to be real are ignored),
+             e.g. {"amount": WHOLE}
+    tracked  other columns whose changes are worth reviewing, e.g.
+             ("revision_status",)
+    ignored  columns not compared, because they change with every download
+             without the figures changing, e.g. ("release", "fetched_at").
+             The sources dataset records each release, so nothing is lost.
+    labels   key columns to show with a readable name: {"jurisdiction":
+             "jurisdictions"} shows the name_en of the matching row of the
+             jurisdictions dataset next to each jurisdiction code.
+    """
+
+    keys: tuple[str, ...]
+    values: Mapping[str, str] = field(default_factory=dict)
+    tracked: tuple[str, ...] = ()
+    ignored: tuple[str, ...] = ()
+    labels: Mapping[str, str] = field(default_factory=dict)
+
+    @property
+    def columns(self) -> tuple[str, ...]:
+        """Every column named, in the order: keys, values, tracked, ignored."""
+        return (*self.keys, *self.values, *self.tracked, *self.ignored)
 
 
 class Transformer(ABC):
@@ -89,6 +129,8 @@ class Transformer(ABC):
     # Staged transformers set this to the source release they read; the runner
     # saves their output under it. Model transformers leave it empty.
     release: date | None = None
+    # Model transformers describe their columns; staged ones leave it empty.
+    layout: Layout | None = None
 
     @abstractmethod
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
@@ -157,6 +199,36 @@ def no_missing_values(
         f"{dataset}: no missing {', '.join(columns)}",
         f"SELECT * FROM {_quoted(dataset)} WHERE {missing}",
     )
+
+
+def layout_matches(db: duckdb.DuckDBPyConnection, transformer: Transformer) -> CheckResult:
+    """Check that a model dataset's layout names every column once, and only real columns.
+
+    The runner adds this check to every model dataset.
+    """
+    name = f"{transformer.name}: layout names every column once"
+    layout = transformer.layout
+    if layout is None:
+        return CheckResult(name, passed=False, detail="the transformer has no layout")
+
+    actual = [row[0] for row in db.sql(f"DESCRIBE {_quoted(transformer.name)}").fetchall()]
+    named = list(layout.columns)
+    problems = []
+    if missing := [column for column in actual if column not in named]:
+        problems.append(f"not in the layout: {', '.join(missing)}")
+    if unknown := [column for column in named if column not in actual]:
+        problems.append(f"in the layout but not the dataset: {', '.join(unknown)}")
+    if repeated := sorted({column for column in named if named.count(column) > 1}):
+        problems.append(f"named more than once: {', '.join(repeated)}")
+    if bad_labels := [column for column in layout.labels if column not in layout.keys]:
+        problems.append(f"labels for columns that are not keys: {', '.join(bad_labels)}")
+    comparisons = (WHOLE, DECIMAL)
+    if bad_kinds := [column for column, how in layout.values.items() if how not in comparisons]:
+        problems.append(f"values neither WHOLE nor DECIMAL: {', '.join(bad_kinds)}")
+
+    if problems:
+        return CheckResult(name, passed=False, detail="; ".join(problems))
+    return CheckResult(name, passed=True, detail=_count(len(actual), "column"))
 
 
 def has_rows(db: duckdb.DuckDBPyConnection, dataset: str) -> CheckResult:

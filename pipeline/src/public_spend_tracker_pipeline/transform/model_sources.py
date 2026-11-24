@@ -26,6 +26,7 @@ from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME, MODEL
 from public_spend_tracker_pipeline.common.settings import ENGLISH, FRENCH, StatCanTable
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
+    Layout,
     Transformer,
     expect_no_rows,
     no_duplicate_keys,
@@ -79,6 +80,16 @@ class Sources(Transformer):
     description = "The Statistics Canada tables behind every figure, with links and fingerprints"
     stage = MODEL
     inputs = DATASETS_WITH_FIGURES
+    # The fingerprints are tracked: a file that changes without a new release
+    # is worth seeing. The download time changes on every download.
+    layout = Layout(
+        keys=("source_id",),
+        tracked=(
+            "publisher", "table_number", "title_en", "title_fr", "release", "url_en", "url_fr",
+            "doi", "sha256_en", "sha256_fr", "licence", "licence_url",
+        ),
+        ignored=("fetched_at",),
+    )  # fmt: skip
 
     def __init__(self, releases: Sequence[tuple[StatCanTable, Path]]) -> None:
         self.releases = releases
@@ -102,7 +113,7 @@ class Sources(Transformer):
             for dataset in DATASETS_WITH_FIGURES
         )
         return [
-            no_duplicate_keys(db, self.name, ["source_id"]),
+            no_duplicate_keys(db, self.name, self.layout.keys),
             no_missing_values(db, self.name, ["title_en", "title_fr", "url_en", "sha256_en"]),
             expect_no_rows(
                 db,

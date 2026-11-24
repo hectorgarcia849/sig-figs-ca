@@ -51,12 +51,18 @@ recording how it was made. The database holds the model tables plus the
 measure views defined in [schema/serving.sql](schema/serving.sql).
 
 Before approving, `diff` shows what changed between the newest build and the
-approved one: figures that vanished (which should never happen), new source
-releases, years added, headline totals, revised figures by government with the
-25 largest, revised population, prices and GDP, and checks. It prints the
-report and saves it in the new build's folder as `changes-vs-<approved build>.md`,
-with every revised figure in `revisions-vs-<approved build>.csv`. Compare any
-two builds with `pst diff <build> --against <other build>`.
+approved one. It compares every model dataset row by row, using the layout
+each transformer declares (which columns identify a row, which are numbers to
+compare, which text to track), so a new source is reviewed as soon as its
+transformer has a layout. The report covers rows that vanished (which should
+never happen), new source releases, a summary of changes by dataset, years
+added, headline totals, revised spending by government with the 25 largest,
+the largest revisions in every other dataset, revised population, prices and
+GDP, and checks. It prints the report and saves it in the new build's folder
+as `changes-vs-<approved build>.md`, with every change, one line per changed
+value, in `changes-vs-<approved build>/<dataset>.csv` (one file per dataset
+that changed). Compare any two builds with
+`pst diff <build> --against <other build>`.
 
 A build is only a candidate until it is approved: `approve` records the
 newest complete build (or the one given, e.g. `pst approve <id>` to roll back)

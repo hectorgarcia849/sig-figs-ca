@@ -47,7 +47,9 @@ import duckdb
 
 from public_spend_tracker_pipeline.common.paths import MODEL
 from public_spend_tracker_pipeline.transform.base import (
+    WHOLE,
     CheckResult,
+    Layout,
     Transformer,
     expect_no_rows,
     no_duplicate_keys,
@@ -174,6 +176,15 @@ class Spending(Transformer):
     description = "Spending by COFOG function in the four views, in dollars"
     stage = MODEL
     inputs = ("cofog_consolidated", "cofog_by_component", "jurisdictions", "functions")
+    # Release, source and vector change with every new release even when the
+    # figures do not; the sources dataset records each release.
+    layout = Layout(
+        keys=("view", "jurisdiction", "function_id", "fiscal_year"),
+        values={"amount": WHOLE, "transfers_to_governments": WHOLE},
+        tracked=("revision_status",),
+        ignored=("release", "source_id", "vector"),
+        labels={"jurisdiction": "jurisdictions", "function_id": "functions"},
+    )
 
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
         """One query per view, stacked together, then transfers to other governments added."""
@@ -213,9 +224,7 @@ class Spending(Transformer):
     def checks(self, db: duckdb.DuckDBPyConnection) -> list[CheckResult]:
         """Unique, complete, linked to the reference lists, and sub-functions add up."""
         return [
-            no_duplicate_keys(
-                db, self.name, ["view", "jurisdiction", "function_id", "fiscal_year"]
-            ),
+            no_duplicate_keys(db, self.name, self.layout.keys),
             no_missing_values(db, self.name, ["amount"]),
             expect_no_rows(
                 db,
@@ -314,6 +323,13 @@ class MunicipalTransfers(Transformer):
     description = "Grants municipalities received from other governments, in dollars"
     stage = MODEL
     inputs = ("gfs_municipal", "jurisdictions", "spending")
+    layout = Layout(
+        keys=("jurisdiction", "fiscal_year"),
+        values={"amount": WHOLE},
+        tracked=("revision_status",),
+        ignored=("release", "source_id", "vector"),
+        labels={"jurisdiction": "jurisdictions"},
+    )
 
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
         dataset = "gfs_municipal"
@@ -337,7 +353,7 @@ class MunicipalTransfers(Transformer):
     def checks(self, db: duckdb.DuckDBPyConnection) -> list[CheckResult]:
         """Unique, no missing amounts, and every province and territory every year."""
         return [
-            no_duplicate_keys(db, self.name, ["jurisdiction", "fiscal_year"]),
+            no_duplicate_keys(db, self.name, self.layout.keys),
             no_missing_values(db, self.name, ["amount"]),
             expect_no_rows(
                 db,

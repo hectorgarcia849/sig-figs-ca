@@ -210,7 +210,8 @@ jobs:
               echo "- **Code changes since the live site:** $REPOSITORY_URL/compare/$live_commit...$GITHUB_SHA"
             fi
             if [[ "$KIND" == "data" ]]; then
-              echo "- **Every revised figure:** \`$PST_DATA_BUCKET/serving/build=$BUILD/revisions-vs-$APPROVED.csv\`"
+              changes="serving/build=$BUILD/changes-vs-$APPROVED"
+              echo "- **Every change, one CSV per dataset:** https://console.cloud.google.com/storage/browser/${PST_DATA_BUCKET#gs://}/$changes?project=$GCP_PROJECT (\`$PST_DATA_BUCKET/$changes/\`)"
               echo
               report="data/serving/build=$BUILD/changes-vs-$APPROVED.md"
               if [[ -f "$report" ]]; then cat "$report"; else echo "(No report: there was no approved build to compare with.)"; fi

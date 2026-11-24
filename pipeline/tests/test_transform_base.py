@@ -9,9 +9,12 @@ import pytest
 
 from public_spend_tracker_pipeline.common.paths import MODEL
 from public_spend_tracker_pipeline.transform.base import (
+    WHOLE,
+    Layout,
     Transformer,
     expect_no_rows,
     has_rows,
+    layout_matches,
     no_duplicate_keys,
     no_missing_values,
 )
@@ -124,3 +127,44 @@ def test_has_rows(db):
     result = has_rows(db, "governments")
     assert result.passed
     assert result.detail == "1 row"
+
+
+def governments_with_layout(layout):
+    """The example transformer with a given layout."""
+    governments = Governments()
+    governments.layout = layout
+    return governments
+
+
+def test_layout_check_passes_when_every_column_is_named_once(db):
+    make_governments(db, "('on', 'Ontario'), ('qc', 'Québec')")
+    layout = Layout(keys=("code",), tracked=("name_fr",))
+    result = layout_matches(db, governments_with_layout(layout))
+    assert (result.passed, result.detail) == (True, "2 columns")
+
+
+@pytest.mark.parametrize(
+    ("layout", "problem"),
+    [
+        (None, "the transformer has no layout"),
+        (Layout(keys=("code",)), "not in the layout: name_fr"),
+        (Layout(keys=("code",), tracked=("name_fr", "name_en")),
+         "in the layout but not the dataset: name_en"),
+        (Layout(keys=("code",), tracked=("name_fr",), ignored=("code",)),
+         "named more than once: code"),
+        (Layout(keys=("code",), tracked=("name_fr",), labels={"name_fr": "places"}),
+         "labels for columns that are not keys: name_fr"),
+        (Layout(keys=("code",), values={"name_fr": "roughly"}),
+         "values neither WHOLE nor DECIMAL: name_fr"),
+    ],
+)  # fmt: skip
+def test_layout_check_fails_with_what_is_wrong(db, layout, problem):
+    make_governments(db, "('on', 'Ontario')")
+    result = layout_matches(db, governments_with_layout(layout))
+    assert not result.passed
+    assert problem in result.detail
+
+
+def test_layout_lists_its_columns_in_order():
+    layout = Layout(keys=("a",), values={"b": WHOLE}, tracked=("c",), ignored=("d",))
+    assert layout.columns == ("a", "b", "c", "d")

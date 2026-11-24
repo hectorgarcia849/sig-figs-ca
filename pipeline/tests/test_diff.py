@@ -5,7 +5,7 @@ Each test makes two tiny builds with known differences:
     OLD  fiscal years 2023-24 and 2024-25, Statistics Canada release 2025-11-27
     NEW  the same, plus 2025-26, release 2026-11-26; Ontario's 2024-25 health
          spending and its hospital sub-function revised up; Quebec's health
-         spending revised down; one CPI value revised
+         spending revised down; Ontario's 2024 CPI revised (fiscal and calendar)
 """
 
 import csv
@@ -27,6 +27,7 @@ from public_spend_tracker_pipeline.release.diff import (
     compare_builds,
     diff_builds,
     money,
+    plain_number,
     report,
     year_label,
 )
@@ -58,7 +59,9 @@ def spending_rows(years, changes=None, leave_out=()):
     return rows
 
 
-def make_build(data_root, build_id, years, release, spending, cpi_2024=110.0, checks=3):
+def make_build(
+    data_root, build_id, years, release, spending, cpi_2024=110.0, checks=3, municipal_2024=None
+):
     folder = serving_build_folder(build_id, data_root)
     folder.mkdir(parents=True)
     db = duckdb.connect(str(folder / DATABASE_FILE_NAME))
@@ -72,7 +75,8 @@ def make_build(data_root, build_id, years, release, spending, cpi_2024=110.0, ch
         ["view", "jurisdiction", "function_id", "fiscal_year", "amount", "revision_status"],
         spending)  # fmt: skip
     create("municipal_transfers", ["jurisdiction", "fiscal_year", "amount"],
-           [("on", year, 5 * BILLION) for year in years])  # fmt: skip
+           [("on", year, municipal_2024 if year == 2024 and municipal_2024 else 5 * BILLION)
+            for year in years])  # fmt: skip
     create("context", ["jurisdiction", "series", "basis", "year", "value"],
         [("on", "cpi", basis, 2024, cpi_2024) for basis in ("calendar", "fiscal")]
         + [("on", "population", "calendar", 2024, 16_000_000.0)])  # fmt: skip
@@ -121,7 +125,9 @@ def test_new_years_releases_and_totals_are_reported(data_root):
     comparison = compare_builds(NEW, OLD, data_root)
     assert comparison.old_years == (2023, 2024)
     assert comparison.new_years == (2023, 2025)
-    assert comparison.added_figures == 15  # 5 view-place pairs x 3 functions, for 2025-26
+    spending = comparison.table("spending")
+    assert spending.rows_added == 15  # 5 view-place pairs x 3 functions, for 2025-26
+    assert spending.rows_removed == 0
     assert [(r.table_number, r.was, r.now) for r in comparison.new_releases] == [
         ("10-10-0005-01", "2025-11-27", "2026-11-26")
     ]
@@ -134,10 +140,20 @@ def test_new_years_releases_and_totals_are_reported(data_root):
     assert all(t.was is None and t.now == 20 * BILLION for t in added_year)
 
 
-def test_status_changes_and_context_revisions_are_counted(data_root):
+def test_every_dataset_is_compared_by_its_layout(data_root):
     comparison = compare_builds(NEW, OLD, data_root)
-    assert comparison.status_changes == 15  # 2024-25 went from preliminary to revised
-    assert comparison.context_revisions == {"population": 0, "cpi": 1, "gdp": 0}
+    summary = {
+        t.table: (t.rows_added, t.rows_removed, t.values_revised, t.tracked_changed)
+        for t in comparison.tables
+    }
+    assert summary == {
+        "jurisdictions": (0, 0, 0, 0),
+        "functions": (0, 0, 0, 0),
+        "spending": (15, 0, 3, 15),  # 15 figures went from preliminary to revised
+        "municipal_transfers": (1, 0, 0, 0),  # 2025-26 added
+        "context": (0, 0, 2, 0),  # Ontario's 2024 CPI, fiscal and calendar
+        "sources": (0, 0, 0, 1),  # the new release
+    }
     assert (comparison.old_checks, comparison.new_checks) == (4, 5)
 
 
@@ -147,10 +163,13 @@ def test_vanished_figures_need_attention(tmp_path):
     make_build(tmp_path, NEW, years, date(2025, 11, 27),
                spending_rows(years, leave_out={HEALTH_QC}))  # fmt: skip
     comparison = compare_builds(NEW, OLD, tmp_path)
-    assert comparison.vanished == ["Quebec, province-wide: Health, 2024-25"]
+    assert comparison.table("spending").rows_removed == 1
     text = report(comparison)
-    assert "**1 figure is in the approved build missing from the new build.**" in text
-    assert text.index("Needs attention") < text.index("Revised figures")
+    assert (
+        "- **spending**: 1 row in the approved build missing from the new build:\n"
+        "  - province_wide, Quebec, Health, 2024-25\n"
+    ) in text
+    assert text.index("Needs attention") < text.index("Revised spending")
 
 
 def test_an_unfinished_build_cannot_be_compared(data_root):
@@ -166,11 +185,13 @@ def test_the_report_reads_as_markdown(data_root):
     assert (
         "| Ontario | Province-wide | Health | 2024-25 | $10.0B | $12.0B | +$2.0B (+20.0%) |" in text
     )
-    assert f"Every one is in `revisions-vs-{OLD}.csv`" in text
-    assert "Prices (CPI): 1" in text
+    assert f"Every change is listed in `changes-vs-{OLD}/<dataset>.csv`" in text
+    assert "| spending | 15 | 0 | 3 | 15 in revision_status |" in text
+    assert "No changes: jurisdictions, functions." in text
+    assert "Values revised: Population: 0; Prices (CPI): 2; GDP: 0." in text
 
 
-def test_diff_compares_the_newest_build_with_the_approved_one_and_saves_both_files(
+def test_diff_compares_the_newest_build_with_the_approved_one_and_saves_every_change(
     data_root, capsys
 ):
     approve(OLD, data_root)
@@ -180,15 +201,20 @@ def test_diff_compares_the_newest_build_with_the_approved_one_and_saves_both_fil
 
     folder = serving_build_folder(NEW, data_root)
     assert (folder / f"changes-vs-{OLD}.md").read_text(encoding="utf-8") == printed
-    with (folder / f"revisions-vs-{OLD}.csv").open(encoding="utf-8") as file:
+    changes = folder / f"changes-vs-{OLD}"
+    assert sorted(path.name for path in changes.iterdir()) == [
+        "context.csv", "municipal_transfers.csv", "sources.csv", "spending.csv",
+    ]  # fmt: skip
+    with (changes / "spending.csv").open(encoding="utf-8") as file:
         rows = list(csv.DictReader(file))
-    assert len(rows) == 3
+    assert len(rows) == 3 + 15 + 15  # amounts revised, statuses changed, figures added
     assert rows[0] == {
-        "government": "Ontario", "counted_as": "Province-wide", "function_id": "707",
-        "function": "Health", "fiscal_year": "2024-25", "was": str(10 * BILLION),
-        "now": str(12 * BILLION), "change": str(2 * BILLION), "change_percent": "20.0",
-        "status_was": "preliminary", "status_now": "revised",
+        "what": "revised", "view": "province_wide", "jurisdiction": "on", "function_id": "707",
+        "fiscal_year": "2024", "jurisdiction_name": "Ontario", "function_name": "Health",
+        "column": "amount", "was": str(10 * BILLION), "now": str(12 * BILLION),
+        "change": str(2 * BILLION), "change_percent": "20.0",
     }  # fmt: skip
+    assert {row["what"] for row in rows} == {"revised", "added"}
 
 
 def test_comparing_with_a_build_that_is_not_approved_says_so(data_root, capsys):
@@ -215,3 +241,26 @@ def test_money_and_years_are_written_plainly():
     assert money(None) == "no figure"
     assert year_label(2024) == "2024-25"
     assert year_label(2099) == "2099-00"
+
+
+def test_rounding_noise_in_decimals_is_not_a_revision_but_any_dollar_is(tmp_path):
+    years = [2023, 2024]
+    make_build(tmp_path, OLD, years, date(2025, 11, 27), spending_rows(years), cpi_2024=110.0)
+    make_build(
+        tmp_path, NEW, years, date(2025, 11, 27), spending_rows(years),
+        cpi_2024=110.0 + 1e-13, municipal_2024=5 * BILLION + 1,
+    )  # fmt: skip
+    comparison = compare_builds(NEW, OLD, tmp_path)
+    assert comparison.table("context").values_revised == 0
+    assert comparison.table("municipal_transfers").values_revised == 1
+    assert "| Ontario, 2024-25 | amount | 5,000,000,000 | 5,000,000,001 | +1 (+0.0%) |" in report(
+        comparison
+    )
+
+
+def test_numbers_are_written_plainly():
+    assert plain_number("18410000000") == "18,410,000,000"
+    assert plain_number("132.2") == "132.2"
+    assert plain_number(0.04166666, signed=True) == "+0.0417"
+    assert plain_number(-466000000.0, signed=True) == "-466,000,000"
+    assert plain_number(None) == ""

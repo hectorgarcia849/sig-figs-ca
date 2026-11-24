@@ -6,29 +6,37 @@ Run it from the repository root with:
     uv run pst diff <build_id>               a particular build against the approved build
     uv run pst diff <build_id> --against <other_build_id>
 
-It opens both builds' databases read-only, compares their tables row by row,
-prints a report (Markdown, so it reads well in a GitHub issue too), and saves
-two files in the newer build's folder:
+It opens both builds' databases read-only and compares every model dataset
+row by row (release/compare.py), using the layout each dataset declares. So a
+new source is covered as soon as its transformer has a layout. It prints a
+report (Markdown, so it reads well in a GitHub issue too) and saves, in the
+newer build's folder:
 
-    changes-vs-<other build>.md     the report
-    revisions-vs-<other build>.csv  every revised spending figure, one row each
+    changes-vs-<other build>.md        the report
+    changes-vs-<other build>/<dataset>.csv
+                                       every change in one dataset, one line per
+                                       changed value (only datasets that changed)
 
-Each file names the build it was compared with, so a comparison is never
+Each name includes the build compared with, so a comparison is never
 overwritten by another (the bucket never overwrites files: see sync.py).
 
 What the report covers, in order:
 
-    Needs attention     figures that existed before and are gone now (should never happen)
-    New source releases which Statistics Canada tables have a new release
-    Years covered       years added, and how many new figures
-    Headline            total spending by all governments, federal and all provinces
-    Revised figures     how many changed, by government, and the 25 largest
-    Population, prices and GDP   how many values were revised (these move per-person,
-                        inflation-adjusted and share-of-GDP figures)
-    Checks              how many passed
+    Needs attention       rows, columns or datasets that are gone (should never happen)
+    New source releases   which Statistics Canada tables have a new release
+    Changes by dataset    rows added and removed, values revised, other changes
+    Years covered         years of spending added
+    Headline              total spending by all governments, federal and all provinces
+    Revised spending      by government, and the 25 largest revisions
+    Other revisions       the largest revisions in every other dataset
+    Population, prices and GDP   how many values were revised (these move
+                          per-person, inflation-adjusted and share-of-GDP figures)
+    Checks                how many passed
 
-A revision is any change to a figure's dollars in a year both builds have.
-Statistics Canada rounds to the nearest million, so every change is real.
+A whole-number value (e.g. dollars, which Statistics Canada rounds to the
+nearest million) is revised if it changed at all. A decimal value (e.g. a
+price index averaged over 12 months) is revised only if it moved by more than
+rounding noise: see compare.DECIMAL_TOLERANCE.
 """
 
 from __future__ import annotations
@@ -41,6 +49,7 @@ from pathlib import Path
 
 import duckdb
 
+from public_spend_tracker_pipeline.build.run import model_transformers
 from public_spend_tracker_pipeline.common.logs import start_logging, stop_logging
 from public_spend_tracker_pipeline.common.paths import (
     BUILD_MANIFEST_FILE_NAME,
@@ -55,13 +64,26 @@ from public_spend_tracker_pipeline.release.approve import (
     is_complete,
     newest_complete_build,
 )
-from public_spend_tracker_pipeline.transform.base import sql_text
+from public_spend_tracker_pipeline.release.compare import (
+    IN_BOTH,
+    NEW,
+    OLD,
+    OLD_ONLY,
+    REMOVED,
+    REVISED,
+    TableChanges,
+    compare_tables,
+    label_name,
+    tables_without_layout,
+)
+from public_spend_tracker_pipeline.transform.base import Layout, sql_text
 
 log = logging.getLogger(__name__)
 
-# How many of the largest revisions, and of any vanished figures, the report lists.
+# How many of the largest revisions, and of any removed rows, the report lists.
 LARGEST_REVISIONS_SHOWN = 25
-VANISHED_SHOWN = 25
+LARGEST_OTHER_REVISIONS_SHOWN = 10
+REMOVED_SHOWN = 25
 
 # The four views, in the order the report lists them, with their names.
 VIEW_NAMES = {
@@ -71,13 +93,22 @@ VIEW_NAMES = {
     "provincial_government": "Provincial government only",
 }
 
-# Context series compared, with their names. Values are compared as
-# published (calendar basis); fiscal-year values are worked out from them.
+# The datasets the report has its own sections for.
+SPENDING = "spending"
+CONTEXT = "context"
+
+# A key column with this name holds a fiscal year by its start (2024 means 2024-25).
+FISCAL_YEAR_KEY = "fiscal_year"
+
+# Context series, with their names.
 CONTEXT_NAMES = {"population": "Population", "cpi": "Prices (CPI)", "gdp": "GDP"}
-CONTEXT_BASIS_COMPARED = "calendar"
 
 CHANGES_FILE = "changes-vs-{other}.md"
-REVISIONS_FILE = "revisions-vs-{other}.csv"
+CHANGES_FOLDER = "changes-vs-{other}"
+CHANGES_TABLE_FILE = "{table}.csv"
+
+# Tables in the database that belong to the build itself, not to a model dataset.
+BUILD_TABLES = ("build_info",)
 
 
 class DiffError(Exception):
@@ -145,22 +176,27 @@ class Comparison:
     new_build: str
     old_build: str
     old_is_approved: bool  # whether the earlier build is the approved one
-    vanished: list[str]  # figures in the old build missing from the new
+    tables: list[TableChanges]  # every model dataset, in build order
+    unexpected_tables: dict[str, str]  # tables with no layout found in one build only
     new_releases: list[SourceRelease]
     old_years: tuple[int, int]
     new_years: tuple[int, int]
-    added_figures: int
     totals: list[Total]
     revisions: list[Revision]  # largest change first
     by_government: list[GovernmentRevisions]
-    status_changes: int
-    municipal_revisions: int
-    context_revisions: dict[str, int]
     old_checks: int
     new_checks: int
 
+    def table(self, name: str) -> TableChanges:
+        return next(table for table in self.tables if table.table == name)
+
 
 # --- Comparing --------------------------------------------------------------
+
+
+def layouts() -> list[tuple[str, Layout]]:
+    """Every model dataset's name and layout, in the order the build lists them."""
+    return [(transformer.name, transformer.layout) for transformer in model_transformers({})]
 
 
 def compare_builds(
@@ -175,39 +211,28 @@ def compare_builds(
 
     db = duckdb.connect()
     try:
-        for alias, build_id in (("new", new_build), ("old", old_build)):
+        for alias, build_id in ((NEW, new_build), (OLD, old_build)):
             database = serving_build_folder(build_id, data_root) / DATABASE_FILE_NAME
             db.sql(f"ATTACH {sql_text(str(database))} AS {alias} (READ_ONLY)")
         names = _Names(db)
+        described = layouts()
+        unexpected = {
+            table: where
+            for table, where in tables_without_layout(db, described).items()
+            if where != IN_BOTH and table not in BUILD_TABLES
+        }
         return Comparison(
             new_build=new_build,
             old_build=old_build,
             old_is_approved=old_is_approved,
-            vanished=_vanished(db, names),
+            tables=compare_tables(db, described),
+            unexpected_tables=unexpected,
             new_releases=_new_releases(db),
-            old_years=_years(db, "old"),
-            new_years=_years(db, "new"),
-            added_figures=_count(
-                db,
-                "SELECT count(*) FROM new.spending "
-                "ANTI JOIN old.spending USING (view, jurisdiction, function_id, fiscal_year)",
-            ),
+            old_years=_years(db, OLD),
+            new_years=_years(db, NEW),
             totals=_totals(db, names),
             revisions=_revisions(db, names),
             by_government=_by_government(db, names),
-            status_changes=_count(
-                db,
-                "SELECT count(*) FROM new.spending AS n JOIN old.spending AS o "
-                "USING (view, jurisdiction, function_id, fiscal_year) "
-                "WHERE n.revision_status IS DISTINCT FROM o.revision_status",
-            ),
-            municipal_revisions=_count(
-                db,
-                "SELECT count(*) FROM new.municipal_transfers AS n "
-                "JOIN old.municipal_transfers AS o USING (jurisdiction, fiscal_year) "
-                "WHERE n.amount IS DISTINCT FROM o.amount",
-            ),
-            context_revisions=_context_revisions(db),
             old_checks=checks_passed(old_build, data_root),
             new_checks=checks_passed(new_build, data_root),
         )
@@ -221,12 +246,6 @@ class _Names:
     def __init__(self, db: duckdb.DuckDBPyConnection):
         self.places = dict(db.sql("SELECT code, name_en FROM new.jurisdictions").fetchall())
         self.functions = dict(db.sql("SELECT function_id, name_en FROM new.functions").fetchall())
-        self.top_level = {
-            function_id
-            for (function_id,) in db.sql(
-                "SELECT function_id FROM new.functions WHERE level = 1"
-            ).fetchall()
-        }
 
     def government(self, view: str, jurisdiction: str) -> str:
         """The government a row is about, read the way its view means it."""
@@ -238,29 +257,6 @@ class _Names:
 
 
 _SPENDING_KEYS = "view, jurisdiction, function_id, fiscal_year"
-
-
-def _count(db: duckdb.DuckDBPyConnection, query: str) -> int:
-    return db.sql(query).fetchall()[0][0]
-
-
-def _vanished(db: duckdb.DuckDBPyConnection, names: _Names) -> list[str]:
-    spending = db.sql(
-        f"SELECT {_SPENDING_KEYS} FROM old.spending "
-        f"ANTI JOIN new.spending USING ({_SPENDING_KEYS}) ORDER BY {_SPENDING_KEYS}"
-    ).fetchall()
-    municipal = db.sql(
-        "SELECT jurisdiction, fiscal_year FROM old.municipal_transfers "
-        "ANTI JOIN new.municipal_transfers USING (jurisdiction, fiscal_year) ORDER BY ALL"
-    ).fetchall()
-    return [
-        f"{names.government(view, place)}, {VIEW_NAMES[view].lower()}: "
-        f"{names.functions.get(function_id, function_id)}, {year_label(year)}"
-        for view, place, function_id, year in spending
-    ] + [
-        f"{names.government('province_wide', place)}: municipal transfers, {year_label(year)}"
-        for place, year in municipal
-    ]
 
 
 def _new_releases(db: duckdb.DuckDBPyConnection) -> list[SourceRelease]:
@@ -289,8 +285,8 @@ _HEADLINE = (("canada", "ca"), ("federal", "ca"), ("province_wide", "ca"))
 
 def _totals(db: duckdb.DuckDBPyConnection, names: _Names) -> list[Total]:
     """Headline totals in the old build's latest year, and in any year the new build adds."""
-    old_latest = _years(db, "old")[1]
-    new_latest = _years(db, "new")[1]
+    old_latest = _years(db, OLD)[1]
+    new_latest = _years(db, NEW)[1]
 
     def total(build: str, view: str, place: str, year: int) -> int | None:
         return db.sql(
@@ -301,8 +297,8 @@ def _totals(db: duckdb.DuckDBPyConnection, names: _Names) -> list[Total]:
         ).fetchall()[0][0]
 
     return [
-        Total(names.government(view, place), year, total("old", view, place, year),
-              total("new", view, place, year))
+        Total(names.government(view, place), year, total(OLD, view, place, year),
+              total(NEW, view, place, year))
         for year in range(old_latest, new_latest + 1)
         for view, place in _HEADLINE
     ]  # fmt: skip
@@ -350,18 +346,6 @@ def _by_government(db: duckdb.DuckDBPyConnection, names: _Names) -> list[Governm
     ]
 
 
-def _context_revisions(db: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    rows = dict(
-        db.sql(
-            "SELECT n.series, count(*) FROM new.context AS n "
-            "JOIN old.context AS o USING (jurisdiction, series, basis, year) "
-            f"WHERE n.basis = {sql_text(CONTEXT_BASIS_COMPARED)} "
-            "AND n.value IS DISTINCT FROM o.value GROUP BY n.series"
-        ).fetchall()
-    )
-    return {series: rows.get(series, 0) for series in CONTEXT_NAMES}
-
-
 def checks_passed(build_id: str, data_root: Path = DATA_ROOT) -> int:
     """How many checks a complete build passed, from its manifest."""
     manifest_file = serving_build_folder(build_id, data_root) / BUILD_MANIFEST_FILE_NAME
@@ -401,6 +385,20 @@ def percent(value: float | None) -> str:
     return "" if value is None else f"{value:+.1f}%"
 
 
+def plain_number(value: str | float | None, signed: bool = False) -> str:
+    """A number as the report shows it: "18,410,000,000", "132.2", "+0.0417"; "" if none.
+
+    Whole numbers get thousands separators; others keep up to 4 decimals.
+    """
+    if value is None or value == "":
+        return ""
+    number = float(value)
+    sign = "+" if signed and number > 0 else ""
+    if number.is_integer():
+        return f"{sign}{number:,.0f}"
+    return sign + f"{number:,.4f}".rstrip("0").rstrip(".")
+
+
 def _change(was: int | None, now: int | None) -> str:
     if was is None or now is None:
         return ""
@@ -412,9 +410,9 @@ def _change(was: int | None, now: int | None) -> str:
     )
 
 
-def _figures(count: int) -> str:
-    """ "1 figure is" or "3 figures are" (for "... missing")."""
-    return "1 figure is" if count == 1 else f"{count:,} figures are"
+def _rows(count: int) -> str:
+    """ "1 row" or "3 rows"."""
+    return "1 row" if count == 1 else f"{count:,} rows"
 
 
 def _table(header: list[str], rows: list[list[str]]) -> list[str]:
@@ -423,24 +421,37 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
     return lines
 
 
+def describe_row(changes: TableChanges, line: tuple) -> str:
+    """A changed row in words: its keys, with readable names where there are some.
+
+    For example "province_wide, Quebec, Health, 2024-25". A key named
+    fiscal_year is written as the fiscal year it means.
+    """
+    parts = []
+    for key in changes.layout.keys:
+        name = label_name(key)
+        label = changes.field(line, name) if name in changes.header else None
+        value = changes.field(line, key)
+        if label is not None:
+            parts.append(str(label))
+        elif key == FISCAL_YEAR_KEY and isinstance(value, int):
+            parts.append(year_label(value))
+        else:
+            parts.append(str(value))
+    return ", ".join(parts)
+
+
 def report(comparison: Comparison) -> str:
     """The report, in Markdown."""
     c = comparison
-    revisions_file = REVISIONS_FILE.format(other=c.old_build)
     earlier = "approved build" if c.old_is_approved else "build"
     before = "Approved" if c.old_is_approved else "Earlier"
+    folder = CHANGES_FOLDER.format(other=c.old_build)
     lines = [f"## What changed: build {c.new_build} compared with {earlier} {c.old_build}", ""]
 
     lines += ["### Needs attention", ""]
-    if c.vanished:
-        lines.append(
-            f"**{_figures(len(c.vanished))} in the {earlier} missing from the new build.**"
-        )
-        lines += [f"- {item}" for item in c.vanished[:VANISHED_SHOWN]]
-        if len(c.vanished) > VANISHED_SHOWN:
-            lines.append(f"- ... and {len(c.vanished) - VANISHED_SHOWN} more")
-    else:
-        lines.append(f"Nothing: every figure in the {earlier} is still there.")
+    attention = _attention(c, earlier)
+    lines += attention or [f"Nothing: every row in the {earlier} is still there."]
     lines.append("")
 
     lines += ["### New source releases", ""]
@@ -456,13 +467,38 @@ def report(comparison: Comparison) -> str:
         lines.append("None: both builds use the same releases.")
     lines.append("")
 
+    lines += ["### Changes by dataset", ""]
+    changed = [t for t in c.tables if t.has_changes]
+    if changed:
+        lines += _table(
+            ["Dataset", "Rows added", "Rows removed", "Values revised", "Other changes"],
+            [
+                [t.table, f"{t.rows_added:,}", f"{t.rows_removed:,}", f"{t.values_revised:,}",
+                 _other_changes(t)]
+                for t in changed
+            ],
+        )  # fmt: skip
+        lines += [
+            "",
+            f"Every change is listed in `{folder}/<dataset>.csv`, saved with the build "
+            "(one line per changed value).",
+        ]
+    else:
+        lines.append("None: every dataset is the same in both builds.")
+    unchanged = [t.table for t in c.tables if not t.has_changes]
+    if changed and unchanged:
+        lines.append(f"No changes: {', '.join(unchanged)}.")
+    lines.append("")
+
+    spending = c.table(SPENDING)
     old_range = f"{year_label(c.old_years[0])} to {year_label(c.old_years[1])}"
     new_range = f"{year_label(c.new_years[0])} to {year_label(c.new_years[1])}"
+    added = f"{spending.rows_added:,} new spending figures"
     lines += ["### Years covered", ""]
     if old_range == new_range:
-        lines.append(f"{new_range}, unchanged ({c.added_figures:,} new spending figures).")
+        lines.append(f"{new_range}, unchanged ({added}).")
     else:
-        lines.append(f"{old_range} -> **{new_range}** ({c.added_figures:,} new spending figures).")
+        lines.append(f"{old_range} -> **{new_range}** ({added}).")
     lines.append("")
 
     lines += ["### Headline: total spending", ""]
@@ -481,15 +517,14 @@ def report(comparison: Comparison) -> str:
     )
     lines.append("")
 
-    lines += ["### Revised figures", ""]
+    lines += ["### Revised spending", ""]
     if c.revisions:
-        lines.append(
-            f"{len(c.revisions):,} spending figures changed in years both builds have. "
-            f"Every one is in `{revisions_file}`, saved with the build."
-        )
-        lines.append(
-            f"{c.status_changes:,} figures changed revision status (e.g. preliminary to revised)."
-        )
+        lines.append(f"{len(c.revisions):,} spending figures changed in years both builds have.")
+        if spending.tracked_changed:
+            lines.append(
+                f"{spending.tracked_changed:,} figures changed revision status "
+                "(e.g. preliminary to revised)."
+            )
         lines += ["", "By government (net change counts the 10 functions only):", ""]
         lines += _table(
             ["Government", "Counted as", "Figures changed", "Net change"],
@@ -510,16 +545,26 @@ def report(comparison: Comparison) -> str:
         )  # fmt: skip
     else:
         lines.append("None: no spending figure changed in years both builds have.")
-        if c.status_changes:
-            lines.append(f"{c.status_changes:,} figures changed revision status.")
-    if c.municipal_revisions:
-        lines += ["", f"Municipal transfers: {c.municipal_revisions:,} figures revised."]
+        if spending.tracked_changed:
+            lines.append(f"{spending.tracked_changed:,} figures changed revision status.")
     lines.append("")
 
+    others = [t for t in c.tables if t.table != SPENDING and t.values_revised]
+    if others:
+        lines += ["### Other revisions", ""]
+        for t in others:
+            lines += _largest_revisions(t)
+            lines.append("")
+
     lines += ["### Population, prices and GDP", ""]
-    revised = [f"{name}: {c.context_revisions[series]:,}" for series, name in CONTEXT_NAMES.items()]
-    lines.append(f"Values revised, as published: {'; '.join(revised)}.")
-    if any(c.context_revisions.values()):
+    context = c.table(CONTEXT)
+    revised = _context_revisions(context)
+    lines.append(
+        "Values revised: "
+        + "; ".join(f"{name}: {revised[series]:,}" for series, name in CONTEXT_NAMES.items())
+        + "."
+    )
+    if any(revised.values()):
         lines.append(
             "These change per-person, inflation-adjusted and share-of-GDP figures, "
             "even where spending did not change."
@@ -530,22 +575,111 @@ def report(comparison: Comparison) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_revisions(revisions: list[Revision], path: Path) -> None:
-    """Every revision as CSV, largest first, with exact dollars for sorting and adding up."""
-    with path.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow([
-            "government", "counted_as", "function_id", "function", "fiscal_year",
-            "was", "now", "change", "change_percent", "status_was", "status_now",
-        ])  # fmt: skip
-        for r in revisions:
-            change_percent = r.change_percent
-            writer.writerow([
-                r.government, r.view, r.function_id, r.function, year_label(r.fiscal_year),
-                r.was, r.now, r.change,
-                "" if change_percent is None else round(change_percent, 2),
-                r.status_was or "", r.status_now or "",
-            ])  # fmt: skip
+def _attention(c: Comparison, earlier: str) -> list[str]:
+    """Lines for the Needs attention section; empty when nothing needs attention."""
+    lines = []
+    for table, where in c.unexpected_tables.items():
+        lines.append(f"- **{table}**: a table with no layout, found in the {where} only.")
+    for t in c.tables:
+        if not t.needs_attention:
+            continue
+        if t.problem:
+            lines.append(f"- **{t.table}**: could not be compared ({t.problem}).")
+        if t.found_in == OLD_ONLY:
+            lines.append(f"- **{t.table}**: in the {earlier}, missing from the new build.")
+        if t.columns_removed:
+            lines.append(
+                f"- **{t.table}**: columns missing from the new build: "
+                f"{', '.join(t.columns_removed)}."
+            )
+        if t.rows_removed:
+            lines.append(
+                f"- **{t.table}**: {_rows(t.rows_removed)} in the {earlier} missing from the "
+                "new build:"
+            )
+            removed = list(dict.fromkeys(describe_row(t, line) for line in t.lines
+                                         if line[0] == REMOVED))  # fmt: skip
+            lines += [f"  - {row}" for row in removed[:REMOVED_SHOWN]]
+            if len(removed) > REMOVED_SHOWN:
+                lines.append(f"  - ... and {len(removed) - REMOVED_SHOWN:,} more")
+    return lines
+
+
+def _other_changes(t: TableChanges) -> str:
+    """The Other changes cell: tracked columns that changed, and anything about the dataset."""
+    notes = []
+    if t.tracked_changed:
+        tracked = {t.field(line, "column") for line in t.lines if line[0] == REVISED}
+        tracked -= set(t.layout.values)
+        notes.append(f"{t.tracked_changed:,} in {', '.join(sorted(tracked))}")
+    if t.columns_added:
+        notes.append(f"new columns: {', '.join(t.columns_added)}")
+    if t.found_in != IN_BOTH:
+        notes.append(f"dataset in the {t.found_in}")
+    if t.problem:
+        notes.append("not compared")
+    return "; ".join(notes)
+
+
+def _largest_revisions(t: TableChanges) -> list[str]:
+    """A dataset's largest revisions, as a heading and a table."""
+    revised = [
+        line for line in t.lines
+        if line[0] == REVISED and t.field(line, "column") in t.layout.values
+    ]  # fmt: skip
+    revised.sort(key=lambda line: abs(t.field(line, "change") or 0), reverse=True)
+    shown = revised[:LARGEST_OTHER_REVISIONS_SHOWN]
+    lines = [f"**{t.table}**: {t.values_revised:,} values revised; the {len(shown)} largest:", ""]
+    lines += _table(
+        ["Row", "Column", "Was", "Now", "Change"],
+        [
+            [
+                describe_row(t, line),
+                t.field(line, "column"),
+                plain_number(t.field(line, "was")),
+                plain_number(t.field(line, "now")),
+                f"{plain_number(t.field(line, 'change'), signed=True)} "
+                f"({percent(t.field(line, 'change_percent'))})",
+            ]
+            for line in shown
+        ],
+    )
+    return lines
+
+
+def _context_revisions(context: TableChanges) -> dict[str, int]:
+    """How many context values were revised, by series (fiscal and calendar years together)."""
+    revised = {series: 0 for series in CONTEXT_NAMES}
+    for line in context.lines:
+        if line[0] == REVISED and context.field(line, "column") in context.layout.values:
+            series = context.field(line, "series")
+            revised[series] = revised.get(series, 0) + 1
+    return revised
+
+
+def write_changes(tables: list[TableChanges], folder: Path) -> list[Path]:
+    """Every change, one CSV file per dataset that changed. Returns the files written.
+
+    Changes in whole numbers are written without a decimal point, so they add
+    up exactly in a spreadsheet.
+    """
+    written = []
+    for t in tables:
+        if not t.lines:
+            continue
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / CHANGES_TABLE_FILE.format(table=t.table)
+        change = t.header.index("change")
+        with path.open("w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(t.header)
+            for line in t.lines:
+                row = ["" if value is None else value for value in line]
+                if isinstance(line[change], float) and line[change].is_integer():
+                    row[change] = int(line[change])
+                writer.writerow(row)
+        written.append(path)
+    return written
 
 
 # --- Command ----------------------------------------------------------------
@@ -556,7 +690,7 @@ def diff_builds(
 ) -> int:
     """Compare a build (the newest by default) with another (the approved one by default).
 
-    Prints the report and saves it, with every revision as CSV, in the build's
+    Prints the report and saves it, with every change as CSV, in the build's
     folder. Returns 0 if it worked, 1 if not.
     """
     start_logging("diff", new_build_id(), data_root)
@@ -575,10 +709,12 @@ def diff_builds(
         text = report(comparison)
         folder = serving_build_folder(new, data_root)
         (folder / CHANGES_FILE.format(other=old)).write_text(text, encoding="utf-8")
-        write_revisions(comparison.revisions, folder / REVISIONS_FILE.format(other=old))
+        written = write_changes(comparison.tables, folder / CHANGES_FOLDER.format(other=old))
         print(text, end="")
-        log.info(f"Saved in {folder}: {CHANGES_FILE.format(other=old)}, "
-                 f"{REVISIONS_FILE.format(other=old)}")  # fmt: skip
+        saved = [CHANGES_FILE.format(other=old)] + [
+            path.relative_to(folder).as_posix() for path in written
+        ]
+        log.info(f"Saved in {folder}: {', '.join(saved)}")
         return 0
     except (DiffError, ApprovalError, duckdb.Error) as error:
         log.error(f"Nothing compared: {error}")

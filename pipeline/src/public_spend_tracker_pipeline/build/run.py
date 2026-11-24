@@ -78,7 +78,12 @@ from public_spend_tracker_pipeline.common.settings import (
     StatCanTable,
 )
 from public_spend_tracker_pipeline.extract.statcan import SOURCE_NAME
-from public_spend_tracker_pipeline.transform.base import CheckResult, Transformer, sql_text
+from public_spend_tracker_pipeline.transform.base import (
+    CheckResult,
+    Transformer,
+    layout_matches,
+    sql_text,
+)
 from public_spend_tracker_pipeline.transform.model_context import Context
 from public_spend_tracker_pipeline.transform.model_reference import Functions, Jurisdictions
 from public_spend_tracker_pipeline.transform.model_sources import Sources
@@ -296,19 +301,27 @@ def _stage(db: duckdb.DuckDBPyConnection, transformer: Transformer, build: Build
 
 
 def _run_model(db: duckdb.DuckDBPyConnection, transformer: Transformer) -> DatasetRecord:
-    """Run one model transformer and check it. Its result stays in the database for later steps."""
+    """Run one model transformer and check it. Its result stays in the database for later steps.
+
+    Every model dataset also gets the layout check, since comparing builds
+    (release/compare.py) relies on each dataset's layout.
+    """
     transformer.transform(db).create(transformer.name)
-    return _check(db, transformer)
+    return _check(db, transformer, extra_checks=[layout_matches(db, transformer)])
 
 
-def _check(db: duckdb.DuckDBPyConnection, transformer: Transformer) -> DatasetRecord:
+def _check(
+    db: duckdb.DuckDBPyConnection,
+    transformer: Transformer,
+    extra_checks: Sequence[CheckResult] = (),
+) -> DatasetRecord:
     """Run a dataset's checks. Logs each failure, then stops the build if any failed."""
     label = transformer.name
     if transformer.release is not None:
         label += f" release {transformer.release}"
 
     rows = db.sql(f"SELECT count(*) FROM {transformer.name}").fetchall()[0][0]
-    results = transformer.checks(db)
+    results = [*transformer.checks(db), *extra_checks]
     _stop_if_any_failed(results, label)
 
     log.info(f"{label}: {rows:,} rows, {len(results)} checks passed")

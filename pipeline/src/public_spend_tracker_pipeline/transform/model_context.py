@@ -16,7 +16,8 @@ How each value is worked out:
 
     CPI         fiscal: average of the 12 months April to March
                 calendar: average of the 12 months January to December
-                (a year missing any month gets no value). The territories
+                (a year missing any month gets no value). Months are added up
+                exactly, so the same data always gives the same average. The territories
                 use their capital city's index, as Statistics Canada does
                 not publish a territory-wide one.
     Population  the July 1 estimate of year N, for both bases.
@@ -37,7 +38,9 @@ import duckdb
 
 from public_spend_tracker_pipeline.common.paths import MODEL
 from public_spend_tracker_pipeline.transform.base import (
+    DECIMAL,
     CheckResult,
+    Layout,
     Transformer,
     expect_no_rows,
     no_duplicate_keys,
@@ -81,6 +84,13 @@ QUARTERS_IN_YEAR = 4
 # year's start: April 2024 -> January 2024 (2024-25); March 2025 -> December
 # 2024 (still 2024-25).
 FISCAL_YEAR_SQL = "year(period_start - INTERVAL 3 MONTH)"
+
+# Months and quarters are added up as exact decimals in this type, then turned
+# back into an ordinary number once. Adding up ordinary (floating-point) numbers
+# can change the last digit depending on the order the database happens to add
+# them in, so two builds of the same data would differ very slightly. 38 digits,
+# 6 after the decimal point, holds any value here exactly.
+EXACT_SUM_TYPE = "DECIMAL(38, 6)"
 
 # Share of a fiscal year falling in its first calendar year (April to December)
 # and in the next one (January to March).
@@ -129,6 +139,15 @@ class Context(Transformer):
         "jurisdictions",
         "spending",
     )
+    # Release, source and vector change with every new release even when the
+    # values do not; the sources dataset records each release.
+    layout = Layout(
+        keys=("jurisdiction", "series", "basis", "year"),
+        values={"value": DECIMAL},
+        tracked=("unit", "method"),
+        ignored=("release", "source_id", "vector"),
+        labels={"jurisdiction": "jurisdictions"},
+    )
 
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
         """Each series' rows, stacked, from the first spending year onward."""
@@ -149,7 +168,7 @@ class Context(Transformer):
             ["series", "basis"], [(series, basis) for series in SERIES for basis in BASES]
         )
         return [
-            no_duplicate_keys(db, self.name, ["jurisdiction", "series", "basis", "year"]),
+            no_duplicate_keys(db, self.name, self.layout.keys),
             no_missing_values(db, self.name, ["value", "unit", "method"]),
             expect_no_rows(
                 db,
@@ -162,6 +181,11 @@ class Context(Transformer):
                     SELECT jurisdiction, series, basis, year FROM {self.name}""",
             ),
         ]
+
+
+def _exact_sum(column: str) -> str:
+    """SQL that adds up a column exactly, giving the same total whatever the order."""
+    return f"CAST(sum(CAST({column} AS {EXACT_SUM_TYPE})) AS DOUBLE)"
 
 
 # --- One query per series ---------------------------------------------------
@@ -185,7 +209,7 @@ def _cpi_sql() -> str:
             {sql_text(CPI)} AS series,
             {sql_text(basis)} AS basis,
             {year} AS year,
-            avg(value) AS value,
+            {_exact_sum("value")} / count(value) AS value,
             'index (' || any_value(unit) || ')' AS unit,
             {sql_text(EXACT)} AS method,
             any_value(release) AS release,
@@ -241,7 +265,7 @@ def _national_gdp_sql() -> str:
             {sql_text(GDP)} AS series,
             {sql_text(basis)} AS basis,
             {year} AS year,
-            sum(value) AS value,
+            {_exact_sum("value")} AS value,
             lower(any_value(unit)) AS unit,
             {sql_text(EXACT)} AS method,
             any_value(release) AS release,

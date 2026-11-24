@@ -17,6 +17,7 @@ from public_spend_tracker_pipeline.common.paths import MODEL
 from public_spend_tracker_pipeline.common.settings import JURISDICTIONS
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
+    Layout,
     Transformer,
     expect_no_rows,
     no_duplicate_keys,
@@ -48,6 +49,10 @@ class Jurisdictions(Transformer):
     description = "Canada, the 10 provinces and the 3 territories, with English and French names"
     stage = MODEL
     inputs = (NAMES_DATASET,)
+    layout = Layout(
+        keys=("code",),
+        tracked=("name_en", "name_fr", "kind", "sort_order", "statcan_name", "cpi_place"),
+    )
 
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
         """Our list of places, with each one's names looked up in Statistics Canada's data.
@@ -77,7 +82,7 @@ class Jurisdictions(Transformer):
     def checks(self, db: duckdb.DuckDBPyConnection) -> list[CheckResult]:
         """Each code appears once, and every place was found with both names."""
         return [
-            no_duplicate_keys(db, self.name, ["code"]),
+            no_duplicate_keys(db, self.name, self.layout.keys),
             no_missing_values(db, self.name, ["name_en", "name_fr"]),
         ]
 
@@ -98,6 +103,10 @@ class Functions(Transformer):
     description = "The 10 COFOG functions and their sub-functions, with English and French names"
     stage = MODEL
     inputs = (NAMES_DATASET,)
+    layout = Layout(
+        keys=("function_id",),
+        tracked=("level", "parent_id", "statcan_codes", "name_en", "name_fr", "sort_order"),
+    )
 
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
         """One row per COFOG code in Statistics Canada's consolidated table."""
@@ -127,7 +136,7 @@ class Functions(Transformer):
     def checks(self, db: duckdb.DuckDBPyConnection) -> list[CheckResult]:
         """Unique IDs, both names, exactly 10 functions, and every sub-function has its parent."""
         return [
-            no_duplicate_keys(db, self.name, ["function_id"]),
+            no_duplicate_keys(db, self.name, self.layout.keys),
             no_missing_values(db, self.name, ["name_en", "name_fr"]),
             expect_no_rows(
                 db,
