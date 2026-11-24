@@ -158,7 +158,8 @@ def test_status_on_an_empty_folder(tmp_path, capsys):
     assert cli.main(["--data-root", str(tmp_path), "status"]) == 0
     output = capsys.readouterr().out
     assert "10-10-0005-01  cofog_consolidated           not downloaded" in output
-    assert "elections.ca   ge45_results_by_candidate    not downloaded" in output
+    assert "elections      ge45_results_by_candidate    not downloaded" in output
+    assert "nrcan          land_outline                 not downloaded" in output
     assert "Builds (newest first)\n  none yet" in output
     assert "Approved build: none yet" in output
 

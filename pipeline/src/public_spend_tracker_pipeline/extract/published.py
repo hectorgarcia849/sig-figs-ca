@@ -1,9 +1,11 @@
-"""Download Elections Canada files exactly as published.
+"""Download files exactly as published at a fixed address.
 
-Elections Canada has no API that reports release dates, and its "last changed"
-dates cannot be trusted: its website runs on several servers, and each one
-reports its own date for the very same file (checked November 2026). So a new
-release is recognised by its contents instead:
+These are the files listed in settings.PUBLISHED_FILES: Elections Canada's
+riding boundaries and results, and Natural Resources Canada's land outline.
+Their publishers have no API that reports release dates, and "last changed"
+dates cannot be trusted: Elections Canada's website runs on several servers,
+and each one reports its own date for the very same file (checked November
+2026). So a new release is recognised by its contents instead:
 
 1. Download the file and take its fingerprint (sha256).
 2. If the fingerprint matches the newest release we already have, nothing
@@ -19,6 +21,7 @@ the transformers.
 Where one release ends up:
 
     data/raw/source=elections/table=ge45_results_by_candidate/release=2026-11-24/
+    (source= is the publisher, from the file's settings: elections or nrcan)
         table_tableau12.csv   the file, exactly as downloaded
         _manifest.json        what we downloaded, from where, when, and its licence
 
@@ -46,8 +49,8 @@ from public_spend_tracker_pipeline.common.paths import (
 )
 from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
-    ELECTIONS_FILES,
-    ElectionsFile,
+    PUBLISHED_FILES,
+    PublishedFile,
 )
 from public_spend_tracker_pipeline.extract.files import (
     ZIP_SIGNATURE,
@@ -62,9 +65,6 @@ from public_spend_tracker_pipeline.extract.files import (
 
 log = logging.getLogger(__name__)
 
-# Name of this source in folder paths and manifests.
-SOURCE_NAME = "elections"
-
 # The response header with the date the server says it last changed the file.
 # Recorded in the manifest for reference only (see the note at the top).
 LAST_MODIFIED_HEADER = "Last-Modified"
@@ -73,40 +73,40 @@ LAST_MODIFIED_HEADER = "Last-Modified"
 ZIP_FILE_ENDING = ".zip"
 
 
-class ElectionsCanadaError(ExtractError):
-    """Elections Canada answered, but not with the file we asked for."""
+class PublishedFileError(ExtractError):
+    """The publisher answered, but not with the file we asked for."""
 
 
 class _SameAsStored(Exception):
     """The download matches the newest stored release, so it is thrown away."""
 
 
-def _label(source_file: ElectionsFile) -> str:
+def _label(source_file: PublishedFile) -> str:
     """How the log names a file, e.g. "elections ge45_results_by_candidate"."""
-    return f"{SOURCE_NAME} {source_file.name}"
+    return f"{source_file.source} {source_file.name}"
 
 
-def file_name(source_file: ElectionsFile) -> str:
+def file_name(source_file: PublishedFile) -> str:
     """The name the file is saved under: the end of its address, e.g. "table_tableau12.csv"."""
     return source_file.url.rsplit("/", 1)[-1]
 
 
-def newest_release(source_file: ElectionsFile, data_root: Path) -> tuple[date, str] | None:
+def newest_release(source_file: PublishedFile, data_root: Path) -> tuple[date, str] | None:
     """The newest stored release of a file and its fingerprint; None if there is none yet."""
-    releases = complete_releases(raw_table_folder(SOURCE_NAME, source_file.name, data_root))
+    releases = complete_releases(raw_table_folder(source_file.source, source_file.name, data_root))
     if not releases:
         return None
     newest = releases[-1]
-    folder = raw_release_folder(SOURCE_NAME, source_file.name, newest, data_root)
+    folder = raw_release_folder(source_file.source, source_file.name, newest, data_root)
     manifest = json.loads((folder / MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
     return newest, manifest["files"][0]["sha256"]
 
 
-def _start_checker(source_file: ElectionsFile):
+def _start_checker(source_file: PublishedFile):
     """A check that the start of a download is the kind of file we expect.
 
     Zip files must start with the zip signature; any file must not be a web
-    page (Elections Canada's site answers missing or unavailable files with one).
+    page (sites answer missing or unavailable files with one).
     """
     name = file_name(source_file)
 
@@ -116,8 +116,8 @@ def _start_checker(source_file: ElectionsFile):
         ):
             title = web_page_title(start.decode("utf-8", errors="replace"))
             shown = f' ("{title}")' if title else ""
-            raise ElectionsCanadaError(
-                f"Elections Canada sent something else{shown} instead of the file {name}."
+            raise PublishedFileError(
+                f"{source_file.publisher} sent something else{shown} instead of the file {name}."
             )
 
     return check_start
@@ -125,14 +125,15 @@ def _start_checker(source_file: ElectionsFile):
 
 def write_manifest(
     folder: Path,
-    source_file: ElectionsFile,
+    source_file: PublishedFile,
     released: date,
     last_modified: str | None,
     downloaded: DownloadedFile,
 ) -> None:
     """Write the manifest: what we downloaded, from where, when, and its licence."""
     manifest = {
-        "source": SOURCE_NAME,
+        "source": source_file.source,
+        "publisher": source_file.publisher,
         "table_name": source_file.name,
         "purpose": source_file.purpose,
         "release": released.isoformat(),
@@ -149,7 +150,7 @@ def write_manifest(
 
 def extract_file(
     client: httpx.Client,
-    source_file: ElectionsFile,
+    source_file: PublishedFile,
     data_root: Path = DATA_ROOT,
     today: date | None = None,
 ) -> ExtractResult:
@@ -163,7 +164,7 @@ def extract_file(
     if stored and stored[0] >= today:
         return ExtractResult(_label(source_file), "already_current", stored[0])
 
-    release_folder = raw_release_folder(SOURCE_NAME, source_file.name, today, data_root)
+    release_folder = raw_release_folder(source_file.source, source_file.name, today, data_root)
     try:
         with new_release_folder(release_folder) as folder:
             with client.stream("GET", source_file.url) as response:
@@ -186,7 +187,7 @@ def extract_file(
 
 def extract_all(
     client: httpx.Client,
-    files: tuple[ElectionsFile, ...] = ELECTIONS_FILES,
+    files: tuple[PublishedFile, ...] = PUBLISHED_FILES,
     data_root: Path = DATA_ROOT,
 ) -> list[ExtractResult]:
     """Extract every file. A failure on one file does not stop the others."""

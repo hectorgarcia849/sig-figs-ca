@@ -5,13 +5,22 @@ Run it from the repository root with:
     uv run pst export                  the approved build (see approve.py), into web/data/
     uv run pst export --build <id>     a particular build, e.g. to try one before approving it
 
-It writes five files:
+It writes these files:
 
     meta.json                 the build, the years covered, and every source
     jurisdictions.json        codes, with English and French names
     functions.json            the COFOG tree, with English and French names
     spending.json             the spending_measures view, fiscal basis
     municipal_transfers.json  the municipal_transfers_measures view, fiscal basis
+
+and, for the riding map, when the build has riding data:
+
+    elections.json            the elections, with names and voting day
+    parties.json              parties, with full and short names
+    ridings.json              the ridings, with current names and province
+    election_districts.json   each riding's name on election day and turnout
+    election_candidates.json  every candidate's result
+    ridings.topo.json         the ridings' shapes, simplified (see riding_map.py)
 
 Nothing is calculated here. The measures come from the views in
 schema/serving.sql, so the site shows exactly what the database holds, only
@@ -42,6 +51,10 @@ from public_spend_tracker_pipeline.common.paths import (
 )
 from public_spend_tracker_pipeline.common.settings import DATA_ROOT, WEB_DATA_FOLDER
 from public_spend_tracker_pipeline.release.approve import approved_build, is_complete
+from public_spend_tracker_pipeline.release.riding_map import (
+    RidingMapError,
+    write_build_riding_map,
+)
 from public_spend_tracker_pipeline.transform.base import sql_text
 
 log = logging.getLogger(__name__)
@@ -65,6 +78,11 @@ SOURCE_COLUMNS = (
 )  # fmt: skip
 
 META_FILE_NAME = "meta.json"
+MAP_FILE_NAME = "ridings.topo.json"
+
+# The dataset whose presence shows a build has riding data. Builds made before
+# the riding map was added have none, and export without the riding files.
+RIDINGS_DATASET = "ridings"
 
 # While an export runs, its files go to a temporary folder next to the
 # destination, named with this start. The replaced export is briefly renamed
@@ -125,6 +143,37 @@ EXPORT_FILES: tuple[ExportFile, ...] = (
 )
 
 
+# The riding map's files (the map itself is made separately).
+RIDING_FILES: tuple[ExportFile, ...] = (
+    ExportFile(
+        "elections.json",
+        "SELECT code, name_en, name_fr, voting_day, general FROM elections ORDER BY voting_day",
+    ),
+    ExportFile(
+        "parties.json",
+        """SELECT code, name_en, name_fr, short_en, short_fr, sort_order
+           FROM parties ORDER BY sort_order""",
+    ),
+    ExportFile(
+        "ridings.json",
+        "SELECT code, name_en, name_fr, jurisdiction FROM ridings ORDER BY code",
+    ),
+    ExportFile(
+        "election_districts.json",
+        """SELECT election, riding, name_at_election_en, name_at_election_fr, renamed,
+                  electors, valid_ballots, rejected_ballots, total_ballots, turnout_pct,
+                  release, source_id
+           FROM election_districts ORDER BY election, riding""",
+    ),
+    ExportFile(
+        "election_candidates.json",
+        """SELECT election, riding, candidate, party, votes, vote_share_pct, elected,
+                  incumbent, margin_votes, margin_pct, release, source_id
+           FROM election_candidates ORDER BY election, riding, votes DESC, candidate""",
+    ),
+)
+
+
 # --- Choosing the build -----------------------------------------------------
 
 
@@ -164,6 +213,10 @@ def run_export(
             _check_build_id(db, build_id)
             rows = {export.file_name: _write_rows(db, export, work) for export in EXPORT_FILES}
             rows[META_FILE_NAME] = _write_meta(db, work / META_FILE_NAME)
+            if _has_table(db, RIDINGS_DATASET):
+                rows |= _write_riding_files(db, build_id, work, data_root)
+            else:
+                log.info(f"Build {build_id} has no riding data, so no riding files were written")
         finally:
             db.close()
         _swap_in(work, destination)
@@ -188,6 +241,27 @@ def _write_rows(db: duckdb.DuckDBPyConnection, export: ExportFile, folder: Path)
     path = folder / export.file_name
     db.sql(f"COPY ({export.query}) TO {sql_text(str(path))} (FORMAT json, ARRAY true)")
     return db.sql(f"SELECT count(*) FROM ({export.query})").fetchall()[0][0]
+
+
+def _write_riding_files(
+    db: duckdb.DuckDBPyConnection, build_id: str, folder: Path, data_root: Path
+) -> dict[str, int]:
+    """Write the riding map's data files and the map. Returns rows (or ridings) per file."""
+    rows = {export.file_name: _write_rows(db, export, folder) for export in RIDING_FILES}
+    codes = {code for (code,) in db.sql(f"SELECT code FROM {RIDINGS_DATASET}").fetchall()}
+    try:
+        rows[MAP_FILE_NAME] = write_build_riding_map(
+            build_id, folder / MAP_FILE_NAME, codes, data_root
+        )
+    except RidingMapError as error:
+        raise ExportError(str(error)) from None
+    return rows
+
+
+def _has_table(db: duckdb.DuckDBPyConnection, name: str) -> bool:
+    """Whether the database has a table with this name."""
+    found = db.sql(f"SELECT count(*) FROM duckdb_tables() WHERE table_name = {sql_text(name)}")
+    return found.fetchall()[0][0] > 0
 
 
 def _write_meta(db: duckdb.DuckDBPyConnection, path: Path) -> int:

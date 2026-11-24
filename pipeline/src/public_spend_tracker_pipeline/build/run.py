@@ -8,7 +8,7 @@ One build:
 
     1. Starts a log and takes an ID from the current time, e.g. 20261115-153000.
     2. Finds every complete download of every Statistics Canada table and
-       Elections Canada file.
+       other published file.
     3. Staged step: turns every downloaded release into a staged dataset and
        checks it. Results go to a temporary work folder for now.
     4. Model step: runs the model transformers in the order their inputs need.
@@ -75,12 +75,13 @@ from public_spend_tracker_pipeline.common.paths import (
 from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
     ELECTIONS_FILES,
+    PUBLISHED_FILES,
     REPOSITORY_ROOT,
     STATCAN_TABLES,
-    ElectionsFile,
+    PublishedFile,
     StatCanTable,
 )
-from public_spend_tracker_pipeline.extract import elections, statcan
+from public_spend_tracker_pipeline.extract import statcan
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
     Transformer,
@@ -91,15 +92,13 @@ from public_spend_tracker_pipeline.transform.model_context import Context
 from public_spend_tracker_pipeline.transform.model_elections import (
     ElectionCandidates,
     ElectionDistricts,
+    Elections,
     Parties,
     Ridings,
 )
 from public_spend_tracker_pipeline.transform.model_reference import Functions, Jurisdictions
 from public_spend_tracker_pipeline.transform.model_sources import Sources
 from public_spend_tracker_pipeline.transform.model_spending import MunicipalTransfers, Spending
-from public_spend_tracker_pipeline.transform.staged_elections import (
-    source_id as elections_source_id,
-)
 from public_spend_tracker_pipeline.transform.staged_elections import (
     staged_elections_transformer,
 )
@@ -123,7 +122,7 @@ IN_MEMORY_DATABASE = "memory"
 
 # Each source table or file, and the folders of its downloaded releases, oldest first.
 StatCanReleases = dict[StatCanTable, list[Path]]
-ElectionsReleases = dict[ElectionsFile, list[Path]]
+PublishedReleases = dict[PublishedFile, list[Path]]
 
 
 class BuildError(Exception):
@@ -182,13 +181,13 @@ def find_releases(data_root: Path = DATA_ROOT) -> StatCanReleases:
     }
 
 
-def find_elections_releases(data_root: Path = DATA_ROOT) -> ElectionsReleases:
-    """Every complete download of every Elections Canada file. Stops if a file has none."""
+def find_published_releases(data_root: Path = DATA_ROOT) -> PublishedReleases:
+    """Every complete download of every other published file. Stops if a file has none."""
     return {
         source_file: _release_folders(
-            elections.SOURCE_NAME, source_file.name, source_file.name, data_root
+            source_file.source, source_file.name, source_file.name, data_root
         )
-        for source_file in ELECTIONS_FILES
+        for source_file in PUBLISHED_FILES
     }
 
 
@@ -210,9 +209,13 @@ def latest_releases[T](releases: dict[T, list[Path]]) -> list[tuple[T, Path]]:
 
 
 def staged_transformers(
-    releases: StatCanReleases, elections_releases: ElectionsReleases | None = None
+    releases: StatCanReleases, published_releases: PublishedReleases | None = None
 ) -> list[Transformer]:
-    """One staged transformer for every downloaded release of every table and file."""
+    """One staged transformer for every downloaded release of every table and file.
+
+    Only Elections Canada's files are staged; the land outline is used as it
+    is, by the export (release/riding_map.py).
+    """
     return [
         *(
             StagedStatCanTable(table, folder)
@@ -221,14 +224,15 @@ def staged_transformers(
         ),
         *(
             staged_elections_transformer(source_file, folder)
-            for source_file, folders in (elections_releases or {}).items()
+            for source_file, folders in (published_releases or {}).items()
+            if source_file in ELECTIONS_FILES
             for folder in folders
         ),
     ]
 
 
 def model_transformers(
-    releases: StatCanReleases, elections_releases: ElectionsReleases | None = None
+    releases: StatCanReleases, published_releases: PublishedReleases | None = None
 ) -> list[Transformer]:
     """The model transformers. The runner works out the order they run in."""
     return [
@@ -237,11 +241,12 @@ def model_transformers(
         Spending(),
         MunicipalTransfers(),
         Context(),
+        Elections(),
         Ridings(),
         Parties(),
         ElectionDistricts(),
         ElectionCandidates(),
-        Sources(latest_releases(releases), latest_releases(elections_releases or {})),
+        Sources(latest_releases(releases), latest_releases(published_releases or {})),
     ]
 
 
@@ -251,7 +256,7 @@ def model_transformers(
 def run_build(
     staged: Sequence[Transformer],
     model: Sequence[Transformer],
-    sources: Sequence[tuple[StatCanTable | ElectionsFile, Path]] = (),
+    sources: Sequence[tuple[StatCanTable | PublishedFile, Path]] = (),
     build_id: str | None = None,
     data_root: Path = DATA_ROOT,
     serving: Serving | None = None,
@@ -495,7 +500,7 @@ def file_sha256(path: Path) -> str:
 
 def _write_build_manifest(
     build: Build,
-    sources: Sequence[tuple[StatCanTable | ElectionsFile, Path]],
+    sources: Sequence[tuple[StatCanTable | PublishedFile, Path]],
     database: Path,
     serving: Serving | None,
 ) -> None:
@@ -537,11 +542,11 @@ def _serving_entry(build: Build, serving: Serving | None) -> dict | None:
     }
 
 
-def _source_entry(table: StatCanTable | ElectionsFile, release_folder: Path) -> dict:
+def _source_entry(table: StatCanTable | PublishedFile, release_folder: Path) -> dict:
     """One source table or file in the build manifest, from its download manifest."""
     download = json.loads((release_folder / MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
-    if isinstance(table, ElectionsFile):
-        identifier, release = elections_source_id(table.name), download["release"]
+    if isinstance(table, PublishedFile):
+        identifier, release = table.source_id, download["release"]
     else:
         identifier, release = source_id(table.name), download["release_time"][:10]
     return {
@@ -613,11 +618,11 @@ def build_everything(data_root: Path = DATA_ROOT) -> int:
     log_path = start_logging("build", build_id, data_root)
     try:
         releases = find_releases(data_root)
-        elections_releases = find_elections_releases(data_root)
+        published_releases = find_published_releases(data_root)
         run_build(
-            staged_transformers(releases, elections_releases),
-            model_transformers(releases, elections_releases),
-            [*latest_releases(releases), *latest_releases(elections_releases)],
+            staged_transformers(releases, published_releases),
+            model_transformers(releases, published_releases),
+            [*latest_releases(releases), *latest_releases(published_releases)],
             build_id,
             data_root=data_root,
             serving=Serving(),

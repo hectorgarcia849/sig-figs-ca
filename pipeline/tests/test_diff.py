@@ -154,6 +154,7 @@ def test_every_dataset_is_compared_by_its_layout(data_root):
         "context": (0, 0, 2, 0),  # Ontario's 2024 CPI, fiscal and calendar
         "sources": (0, 0, 0, 1),  # the new release
         # In neither made-up build:
+        "elections": (0, 0, 0, 0),
         "ridings": (0, 0, 0, 0),
         "parties": (0, 0, 0, 0),
         "election_districts": (0, 0, 0, 0),

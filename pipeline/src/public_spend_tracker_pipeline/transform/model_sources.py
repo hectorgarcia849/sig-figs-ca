@@ -4,7 +4,8 @@ One dataset, sources, with one row per Statistics Canada table and Elections
 Canada file used in the build: its official titles, the release we used, links
 to where it is published, its licence, and fingerprints of the exact files we
 downloaded. Statistics Canada tables also have a table number and a permanent
-citation link (DOI); Elections Canada files have neither, so those are empty.
+citation link (DOI); the other published files (Elections Canada, Natural
+Resources Canada) have neither, so those are empty.
 
 It is read from the download manifests rather than from other datasets, so
 like the staged transformers it is handed the release folders by the runner.
@@ -28,7 +29,7 @@ from public_spend_tracker_pipeline.common.settings import (
     ENGLISH,
     ENGLISH_AND_FRENCH,
     FRENCH,
-    ElectionsFile,
+    PublishedFile,
     StatCanTable,
 )
 from public_spend_tracker_pipeline.transform.base import (
@@ -41,13 +42,9 @@ from public_spend_tracker_pipeline.transform.base import (
     sql_table,
     sql_text,
 )
-from public_spend_tracker_pipeline.transform.staged_elections import (
-    source_id as elections_source_id,
-)
 from public_spend_tracker_pipeline.transform.statcan_sql import source_id
 
 PUBLISHER = "Statistics Canada"
-ELECTIONS_PUBLISHER = "Elections Canada"
 LICENCE = "Open Government Licence – Canada"
 LICENCE_URL = "https://open.canada.ca/en/open-government-licence-canada"
 
@@ -87,14 +84,14 @@ COLUMNS = (
 
 
 class Sources(Transformer):
-    """One row per Statistics Canada table and Elections Canada file used, from its manifest.
+    """One row per Statistics Canada table and other published file used, from its manifest.
 
     fetched_at is when we downloaded it, in UTC.
 
     releases            Each Statistics Canada table with the folder of the
                         release used. The runner passes the same releases the
                         staged datasets were built from.
-    elections_releases  The same for each Elections Canada file.
+    published_releases  The same for each other published file.
     """
 
     name = "sources"
@@ -115,15 +112,15 @@ class Sources(Transformer):
     def __init__(
         self,
         releases: Sequence[tuple[StatCanTable, Path]],
-        elections_releases: Sequence[tuple[ElectionsFile, Path]] = (),
+        published_releases: Sequence[tuple[PublishedFile, Path]] = (),
     ) -> None:
         self.releases = releases
-        self.elections_releases = elections_releases
+        self.published_releases = published_releases
 
     def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
         """Read each manifest and write one row per table or file."""
         rows = [_source_row(table, folder) for table, folder in self.releases]
-        rows += [_elections_row(file, folder) for file, folder in self.elections_releases]
+        rows += [_published_row(file, folder) for file, folder in self.published_releases]
         return db.sql(f"""
             -- Download time, stored as UTC without a time zone so any tool can read it.
             SELECT * REPLACE (
@@ -177,8 +174,8 @@ def _source_row(table: StatCanTable, release_folder: Path) -> tuple:
     )
 
 
-def _elections_row(source_file: ElectionsFile, release_folder: Path) -> tuple:
-    """One row of the sources dataset for an Elections Canada file, from its manifest.
+def _published_row(source_file: PublishedFile, release_folder: Path) -> tuple:
+    """One row of the sources dataset for another published file, from its manifest.
 
     A file with both languages in it has one fingerprint, given for both.
     """
@@ -186,8 +183,8 @@ def _elections_row(source_file: ElectionsFile, release_folder: Path) -> tuple:
     downloaded = manifest["files"][0]
     fingerprint = downloaded["sha256"]
     return (
-        elections_source_id(source_file.name),
-        ELECTIONS_PUBLISHER,
+        source_file.source_id,
+        source_file.publisher,
         None,  # no table number
         source_file.title_en,
         source_file.title_fr,

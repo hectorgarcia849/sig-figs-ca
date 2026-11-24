@@ -1,7 +1,9 @@
 """Ridings, parties and federal election results, ready for the riding map.
 
-Four datasets:
+Five datasets:
 
+    elections            The federal elections whose results we use, from
+                         settings.ELECTIONS: names and voting day.
     ridings              The 343 federal ridings: number, current English and
                          French names, and province or territory.
     parties              Every party a candidate stood for, from
@@ -101,6 +103,25 @@ def _comparable(column: str) -> str:
 
 DISTRICTS_DATASETS = tuple(election.districts_dataset for election in ELECTIONS)
 CANDIDATES_DATASETS = tuple(election.candidates_dataset for election in ELECTIONS)
+
+
+class Elections(Transformer):
+    """Every election in settings.ELECTIONS, oldest first."""
+
+    name = "elections"
+    description = "The federal elections whose official results we use"
+    stage = MODEL
+    layout = Layout(keys=("code",), tracked=("name_en", "name_fr", "voting_day", "general"))
+
+    def transform(self, db: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyRelation:
+        rows = [(e.code, e.name_en, e.name_fr, e.voting_day, e.general) for e in ELECTIONS]
+        return db.sql(f"{sql_table(self.layout.columns, rows)} ORDER BY voting_day")
+
+    def checks(self, db: duckdb.DuckDBPyConnection) -> list[CheckResult]:
+        return [
+            no_duplicate_keys(db, self.name, self.layout.keys),
+            no_missing_values(db, self.name, ["name_en", "name_fr", "voting_day"]),
+        ]
 
 
 class Ridings(Transformer):

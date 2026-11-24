@@ -24,10 +24,10 @@ from public_spend_tracker_pipeline.common.paths import (
 )
 from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
-    ELECTIONS_FILES,
+    PUBLISHED_FILES,
     STATCAN_TABLES,
 )
-from public_spend_tracker_pipeline.extract import elections, statcan
+from public_spend_tracker_pipeline.extract import statcan
 
 
 def reasons_to_build(data_root: Path = DATA_ROOT) -> list[str]:
@@ -47,8 +47,8 @@ def reasons_to_build(data_root: Path = DATA_ROOT) -> list[str]:
         (table.name, raw_table_folder(statcan.SOURCE_NAME, table.product_id, data_root))
         for table in STATCAN_TABLES
     ] + [
-        (source_file.name, raw_table_folder(elections.SOURCE_NAME, source_file.name, data_root))
-        for source_file in ELECTIONS_FILES
+        (source_file.name, raw_table_folder(source_file.source, source_file.name, data_root))
+        for source_file in PUBLISHED_FILES
     ]
 
     reasons = []

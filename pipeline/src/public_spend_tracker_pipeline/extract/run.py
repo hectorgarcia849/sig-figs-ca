@@ -14,7 +14,7 @@ from public_spend_tracker_pipeline.common.http_client import open_client
 from public_spend_tracker_pipeline.common.logs import start_logging, stop_logging
 from public_spend_tracker_pipeline.common.paths import new_build_id
 from public_spend_tracker_pipeline.common.settings import DATA_ROOT
-from public_spend_tracker_pipeline.extract import elections, statcan
+from public_spend_tracker_pipeline.extract import published, statcan
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def run_extract(data_root: Path = DATA_ROOT) -> int:
     try:
         with open_client() as client:
             results = statcan.extract_all(client, data_root=data_root)
-            results += elections.extract_all(client, data_root=data_root)
+            results += published.extract_all(client, data_root=data_root)
         failed = [result for result in results if result.status == "failed"]
         if failed:
             log.error(f"{len(failed)} of {len(results)} downloads failed. Log: {log_path}")

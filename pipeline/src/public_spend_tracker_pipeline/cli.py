@@ -1,6 +1,6 @@
 """The pst command: one front door to the pipeline.
 
-    pst extract   download new Statistics Canada and Elections Canada releases
+    pst extract   download new releases: Statistics Canada tables and other published files
     pst build     build and check the database from everything downloaded
     pst update    extract, then build if anything new arrived: the everyday command
     pst status    show downloads, builds and the approved build (changes nothing)
@@ -47,12 +47,12 @@ from public_spend_tracker_pipeline.common.paths import (
 from public_spend_tracker_pipeline.common.settings import (
     DATA_BUCKET,
     DATA_ROOT,
-    ELECTIONS_FILES,
+    PUBLISHED_FILES,
     STATCAN_TABLES,
     WEB_DATA_FOLDER,
 )
 from public_spend_tracker_pipeline.common.sync import DIRECTIONS, Direction, sync_data
-from public_spend_tracker_pipeline.extract import elections, statcan
+from public_spend_tracker_pipeline.extract import statcan
 from public_spend_tracker_pipeline.extract.run import run_extract
 from public_spend_tracker_pipeline.release.approve import approve_build, approved_build
 from public_spend_tracker_pipeline.release.diff import checks_passed, diff_builds
@@ -66,10 +66,6 @@ BUILDS_SHOWN = 10
 # and our names for tables and files.
 TABLE_NUMBER_WIDTH = 13
 NAME_WIDTH = 28
-
-# What "pst status" shows in the table-number column for Elections Canada files.
-ELECTIONS_LABEL = "elections.ca"
-
 SUCCESS = 0
 FAILURE = 1
 
@@ -78,7 +74,7 @@ FAILURE = 1
 
 
 def extract(data_root: Path) -> int:
-    """Download new Statistics Canada and Elections Canada releases."""
+    """Download new releases: Statistics Canada tables and other published files."""
     return run_extract(data_root)
 
 
@@ -158,9 +154,9 @@ def _download_lines(data_root: Path) -> list[str]:
     for table in STATCAN_TABLES:
         folder = raw_table_folder(statcan.SOURCE_NAME, table.product_id, data_root)
         lines.append(_download_line(table_number(table.product_id), table.name, folder))
-    for source_file in ELECTIONS_FILES:
-        folder = raw_table_folder(elections.SOURCE_NAME, source_file.name, data_root)
-        lines.append(_download_line(ELECTIONS_LABEL, source_file.name, folder))
+    for source_file in PUBLISHED_FILES:
+        folder = raw_table_folder(source_file.source, source_file.name, data_root)
+        lines.append(_download_line(source_file.source, source_file.name, folder))
     return lines
 
 

@@ -1,6 +1,6 @@
-"""Tests for the Elections Canada extractor.
+"""Tests for the published-file extractor (Elections Canada, Natural Resources Canada).
 
-These run offline: instead of Elections Canada's real server, the extractor
+These run offline: instead of the publishers' real servers, the extractor
 talks to a small fake that serves made-up files.
 """
 
@@ -15,17 +15,15 @@ from public_spend_tracker_pipeline.common.settings import (
     ENGLISH_AND_FRENCH,
     OPEN_GOVERNMENT_LICENCE,
     OPEN_GOVERNMENT_LICENCE_URL,
-    ElectionsFile,
-)
-from public_spend_tracker_pipeline.extract.elections import (
-    SOURCE_NAME,
-    extract_all,
-    extract_file,
+    PublishedFile,
 )
 from public_spend_tracker_pipeline.extract.files import ZIP_SIGNATURE
+from public_spend_tracker_pipeline.extract.published import extract_all, extract_file
 
-CSV_FILE = ElectionsFile(
+CSV_FILE = PublishedFile(
     name="ge45_results_by_candidate",
+    source="elections",
+    publisher="Elections Canada",
     purpose="test file",
     title_en="Test file",
     title_fr="Fichier d'essai",
@@ -36,12 +34,14 @@ CSV_FILE = ElectionsFile(
     licence_url=OPEN_GOVERNMENT_LICENCE_URL,
     language=ENGLISH_AND_FRENCH,
 )
-ZIP_FILE = ElectionsFile(
-    name="federal_electoral_districts",
+ZIP_FILE = PublishedFile(
+    name="land_outline",
+    source="nrcan",
+    publisher="Natural Resources Canada",
     purpose="test file",
     title_en="Test file",
     title_fr="Fichier d'essai",
-    url="https://www.elections.ca/res/cir/mapsCorner/edb/FederalElectoralDistricts_SHP.zip",
+    url="https://ftp.geogratis.gc.ca/pub/AC_1M_BoundaryPolygons.shp.zip",
     listing_url="https://open.canada.ca/data/en/dataset/test",
     listing_url_fr="https://ouvert.canada.ca/data/fr/dataset/test",
     licence=OPEN_GOVERNMENT_LICENCE,
@@ -61,8 +61,8 @@ NOT_FOUND_PAGE = (
 )
 
 
-class FakeElectionsCanada:
-    """Stands in for Elections Canada's server and records what was requested."""
+class FakePublisher:
+    """Stands in for a publisher's server and records what was requested."""
 
     def __init__(self, csv_content=CSV_CONTENT, send_page=False):
         self.csv_content = csv_content
@@ -85,16 +85,16 @@ class FakeElectionsCanada:
 
 
 def stored_folders(tmp_path, source_file=CSV_FILE) -> list[str]:
-    folder = raw_table_folder(SOURCE_NAME, source_file.name, tmp_path)
+    folder = raw_table_folder(source_file.source, source_file.name, tmp_path)
     return sorted(path.name for path in folder.iterdir())
 
 
 def test_downloads_new_release_with_manifest_and_licence(tmp_path):
-    result = extract_file(FakeElectionsCanada().client(), CSV_FILE, tmp_path, today=DAY_ONE)
+    result = extract_file(FakePublisher().client(), CSV_FILE, tmp_path, today=DAY_ONE)
 
     assert result.status == "downloaded"
     assert result.release_date == DAY_ONE
-    folder = raw_table_folder(SOURCE_NAME, CSV_FILE.name, tmp_path) / "release=2026-11-24"
+    folder = raw_table_folder(CSV_FILE.source, CSV_FILE.name, tmp_path) / "release=2026-11-24"
     assert sorted(path.name for path in folder.iterdir()) == [
         MANIFEST_FILE_NAME,
         "table_tableau12.csv",
@@ -102,7 +102,8 @@ def test_downloads_new_release_with_manifest_and_licence(tmp_path):
     assert (folder / "table_tableau12.csv").read_bytes() == CSV_CONTENT
 
     manifest = json.loads((folder / MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
-    assert manifest["source"] == SOURCE_NAME
+    assert manifest["source"] == "elections"
+    assert manifest["publisher"] == "Elections Canada"
     assert manifest["table_name"] == "ge45_results_by_candidate"
     assert manifest["release"] == "2026-11-24"
     assert manifest["server_last_modified"] == LAST_MODIFIED
@@ -117,21 +118,21 @@ def test_downloads_new_release_with_manifest_and_licence(tmp_path):
 
 
 def test_zip_file_is_saved(tmp_path):
-    result = extract_file(FakeElectionsCanada().client(), ZIP_FILE, tmp_path, today=DAY_ONE)
+    result = extract_file(FakePublisher().client(), ZIP_FILE, tmp_path, today=DAY_ONE)
 
     assert result.status == "downloaded"
     saved = (
-        raw_table_folder(SOURCE_NAME, ZIP_FILE.name, tmp_path)
+        raw_table_folder(ZIP_FILE.source, ZIP_FILE.name, tmp_path)
         / "release=2026-11-24"
-        / "FederalElectoralDistricts_SHP.zip"
+        / "AC_1M_BoundaryPolygons.shp.zip"
     )
     assert saved.read_bytes().startswith(ZIP_SIGNATURE)
 
 
 def test_unchanged_file_is_not_stored_again(tmp_path):
-    extract_file(FakeElectionsCanada().client(), CSV_FILE, tmp_path, today=DAY_ONE)
+    extract_file(FakePublisher().client(), CSV_FILE, tmp_path, today=DAY_ONE)
 
-    result = extract_file(FakeElectionsCanada().client(), CSV_FILE, tmp_path, today=DAY_TWO)
+    result = extract_file(FakePublisher().client(), CSV_FILE, tmp_path, today=DAY_TWO)
 
     assert result.status == "already_current"
     assert result.release_date == DAY_ONE
@@ -139,8 +140,8 @@ def test_unchanged_file_is_not_stored_again(tmp_path):
 
 
 def test_changed_file_is_stored_beside_the_old_one(tmp_path):
-    extract_file(FakeElectionsCanada().client(), CSV_FILE, tmp_path, today=DAY_ONE)
-    changed = FakeElectionsCanada(csv_content=b"Province,Corrected results\n")
+    extract_file(FakePublisher().client(), CSV_FILE, tmp_path, today=DAY_ONE)
+    changed = FakePublisher(csv_content=b"Province,Corrected results\n")
 
     result = extract_file(changed.client(), CSV_FILE, tmp_path, today=DAY_TWO)
 
@@ -149,8 +150,8 @@ def test_changed_file_is_stored_beside_the_old_one(tmp_path):
 
 
 def test_file_is_checked_at_most_once_a_day(tmp_path):
-    extract_file(FakeElectionsCanada().client(), CSV_FILE, tmp_path, today=DAY_ONE)
-    fake = FakeElectionsCanada(csv_content=b"Province,Changed later the same day\n")
+    extract_file(FakePublisher().client(), CSV_FILE, tmp_path, today=DAY_ONE)
+    fake = FakePublisher(csv_content=b"Province,Changed later the same day\n")
 
     result = extract_file(fake.client(), CSV_FILE, tmp_path, today=DAY_ONE)
 
@@ -159,7 +160,7 @@ def test_file_is_checked_at_most_once_a_day(tmp_path):
 
 
 def test_web_page_instead_of_file_is_never_saved(tmp_path):
-    results = extract_all(FakeElectionsCanada(send_page=True).client(), (CSV_FILE,), tmp_path)
+    results = extract_all(FakePublisher(send_page=True).client(), (CSV_FILE,), tmp_path)
 
     assert results[0].status == "failed"
     assert results[0].message == (
@@ -170,19 +171,19 @@ def test_web_page_instead_of_file_is_never_saved(tmp_path):
 
 
 def test_zip_file_that_is_not_a_zip_is_never_saved(tmp_path):
-    class NotAZip(FakeElectionsCanada):
+    class NotAZip(FakePublisher):
         def file_content(self, path: str) -> bytes:
             return b"plain text"
 
     results = extract_all(NotAZip().client(), (ZIP_FILE,), tmp_path)
 
     assert results[0].status == "failed"
-    assert "instead of the file FederalElectoralDistricts_SHP.zip" in results[0].message
+    assert "instead of the file AC_1M_BoundaryPolygons.shp.zip" in results[0].message
     assert stored_folders(tmp_path, ZIP_FILE) == []
 
 
 def test_one_failure_does_not_stop_the_other_files(tmp_path):
-    class MissingCsv(FakeElectionsCanada):
+    class MissingCsv(FakePublisher):
         def answer(self, request: httpx.Request) -> httpx.Response:
             if request.url.path.endswith(".csv"):
                 return httpx.Response(404)

@@ -1,9 +1,10 @@
 """Fixed settings for the pipeline.
 
 One place for every value the pipeline depends on: which Statistics Canada
-tables and Elections Canada files we use and why, where data files are
-stored, and how we talk to their servers. No other module should contain a bare web
-address, table number or time limit.
+tables and other published files (Elections Canada, Natural Resources Canada)
+we use and why, where data files are stored, and how we talk to their
+servers. No other module should contain a bare web address, table number or
+time limit.
 """
 
 import os
@@ -171,7 +172,15 @@ STATCAN_TABLES: tuple[StatCanTable, ...] = (
 )
 
 
-# --- The Elections Canada files we use --------------------------------------
+# --- Other published files we use ------------------------------------------
+#
+# Files published at a fixed address, recognised as new when their contents
+# change (see extract/published.py): Elections Canada's riding boundaries and
+# results, and Natural Resources Canada's outline of Canada's land.
+
+# Our names for their publishers, used in folder names and source IDs.
+ELECTIONS_SOURCE = "elections"
+NRCAN_SOURCE = "nrcan"
 
 # Language code for a file that has both English and French in it.
 ENGLISH_AND_FRENCH = f"{ENGLISH},{FRENCH}"
@@ -189,14 +198,16 @@ ELECTIONS_CANADA_TERMS_URL = (
 
 
 @dataclass(frozen=True)
-class ElectionsFile:
-    """One file we download from Elections Canada, and why we need it.
+class PublishedFile:
+    """One file we download from a publisher's website, and why we need it.
 
-    Elections Canada has no API that reports release dates, so a new release
-    is recognised by a change in the file's contents (see extract/elections.py).
+    These publishers have no API that reports release dates, so a new release
+    is recognised by a change in the file's contents (see extract/published.py).
 
     name             Our short name for the file, used in folder names, logs
-                     and as the name of its staged dataset.
+                     and as the name of its staged dataset, if it has one.
+    source           Our name for the publisher: ELECTIONS_SOURCE or NRCAN_SOURCE.
+    publisher        The publisher's name, as the site shows it.
     purpose          Plain-English reason we use the file.
     title_en         The file's official title, in English and French, as
     title_fr         the listing page gives it.
@@ -209,6 +220,8 @@ class ElectionsFile:
     """
 
     name: str
+    source: str
+    publisher: str
     purpose: str
     title_en: str
     title_fr: str
@@ -218,6 +231,11 @@ class ElectionsFile:
     licence: str
     licence_url: str
     language: str
+
+    @property
+    def source_id(self) -> str:
+        """Our ID for the file as a source, e.g. "elections-ge45_results_by_candidate"."""
+        return f"{self.source}-{self.name}"
 
 
 # Official results of the 45th general election (28 April 2025).
@@ -237,8 +255,10 @@ GE45_TITLE_FR = "45e élection générale : Résultats officiels du scrutin"
 # The riding boundaries, listed on open.canada.ca (English and French).
 FEDERAL_ELECTORAL_DISTRICTS_DATASET = "18bf3ea7-1940-46ec-af52-9ba3f77ed708"
 
-ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
-    ElectionsFile(
+ELECTIONS_FILES: tuple[PublishedFile, ...] = (
+    PublishedFile(
+        source=ELECTIONS_SOURCE,
+        publisher="Elections Canada",
         name="federal_electoral_districts",
         purpose="Boundaries of the 343 federal ridings (2023 Representation Order), for the map",
         title_en="Federal Electoral Districts - Canada 2023",
@@ -250,7 +270,9 @@ ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
         licence_url=OPEN_GOVERNMENT_LICENCE_URL,
         language=ENGLISH_AND_FRENCH,
     ),
-    ElectionsFile(
+    PublishedFile(
+        source=ELECTIONS_SOURCE,
+        publisher="Elections Canada",
         name="ge45_results_by_district",
         purpose="2025 election: electors, ballots cast and turnout in each riding",
         title_en=f"{GE45_TITLE_EN} - Table 11: Voting results by electoral district",
@@ -262,7 +284,9 @@ ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
         licence_url=ELECTIONS_CANADA_TERMS_URL,
         language=ENGLISH_AND_FRENCH,
     ),
-    ElectionsFile(
+    PublishedFile(
+        source=ELECTIONS_SOURCE,
+        publisher="Elections Canada",
         name="ge45_results_by_candidate",
         purpose="2025 election: votes for every candidate in each riding, and who was elected",
         title_en=(
@@ -281,6 +305,31 @@ ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
         language=ENGLISH_AND_FRENCH,
     ),
 )
+
+
+# Canada's land, to cut the ridings' legal boundaries (which take in Hudson Bay,
+# the Arctic waters and the sea) back to the shoreline for the site's map.
+# The 1:1,000,000 scale keeps city shorelines (Vancouver, Halifax) recognisable.
+ATLAS_1M_DATASET = "fec926ca-25ad-5c92-a9a7-6009c21d17b3"
+LAND_OUTLINE_FILE = PublishedFile(
+    name="land_outline",
+    source=NRCAN_SOURCE,
+    publisher="Natural Resources Canada",
+    purpose="Canada's land and coastline, to cut the riding map back to the shore",
+    title_en="Atlas of Canada National Scale Data 1:1,000,000 - Boundary Polygons",
+    title_fr="Données de l'Atlas du Canada à l'échelle nationale de 1/1 000 000 - "
+    "Limites (polygones)",
+    url="https://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/framework_cadre/"
+    "Atlas_of_Canada_1M/boundary/AC_1M_BoundaryPolygons.shp.zip",
+    listing_url=f"https://open.canada.ca/data/en/dataset/{ATLAS_1M_DATASET}",
+    listing_url_fr=f"https://ouvert.canada.ca/data/fr/dataset/{ATLAS_1M_DATASET}",
+    licence=OPEN_GOVERNMENT_LICENCE,
+    licence_url=OPEN_GOVERNMENT_LICENCE_URL,
+    language=ENGLISH_AND_FRENCH,
+)
+
+# Every published file we download.
+PUBLISHED_FILES: tuple[PublishedFile, ...] = (*ELECTIONS_FILES, LAND_OUTLINE_FILE)
 
 
 # Name of the staged dataset holding the riding boundaries' names and numbers.

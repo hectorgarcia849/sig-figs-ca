@@ -38,8 +38,9 @@ import shapefile
 from public_spend_tracker_pipeline.common.paths import MANIFEST_FILE_NAME, STAGED
 from public_spend_tracker_pipeline.common.settings import (
     ELECTIONS,
+    ELECTIONS_SOURCE,
     RIDING_BOUNDARIES_DATASET,
-    ElectionsFile,
+    PublishedFile,
 )
 from public_spend_tracker_pipeline.transform.base import (
     CheckResult,
@@ -52,8 +53,9 @@ from public_spend_tracker_pipeline.transform.base import (
 )
 from public_spend_tracker_pipeline.transform.staged_statcan import SourceChangedError
 
-# Our ID for the source behind a staged Elections Canada dataset.
-SOURCE_ID_PREFIX = "elections-"
+# Our ID for the source behind a staged Elections Canada dataset (the same as
+# PublishedFile.source_id gives).
+SOURCE_ID_PREFIX = f"{ELECTIONS_SOURCE}-"
 
 # --- The riding boundary file -----------------------------------------------
 
@@ -169,7 +171,7 @@ def source_id(dataset: str) -> str:
     return SOURCE_ID_PREFIX + dataset
 
 
-def staged_elections_transformer(source_file: ElectionsFile, release_folder: Path) -> Transformer:
+def staged_elections_transformer(source_file: PublishedFile, release_folder: Path) -> Transformer:
     """The staged transformer for one downloaded release of an Elections Canada file."""
     if source_file.name == RIDING_BOUNDARIES_DATASET:
         return StagedRidingBoundaries(source_file, release_folder)
@@ -194,7 +196,7 @@ class _StagedElectionsFile(Transformer):
 
     stage = STAGED
 
-    def __init__(self, source_file: ElectionsFile, release_folder: Path) -> None:
+    def __init__(self, source_file: PublishedFile, release_folder: Path) -> None:
         self.source_file = source_file
         self.name = source_file.name
         self.description = source_file.purpose
@@ -265,7 +267,7 @@ class StagedResultsTable(_StagedElectionsFile):
     kind  RESULTS_BY_DISTRICT or RESULTS_BY_CANDIDATE.
     """
 
-    def __init__(self, source_file: ElectionsFile, release_folder: Path, kind: str) -> None:
+    def __init__(self, source_file: PublishedFile, release_folder: Path, kind: str) -> None:
         super().__init__(source_file, release_folder)
         self.kind = kind
         self.columns = RESULTS_COLUMNS[kind]

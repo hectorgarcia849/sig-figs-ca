@@ -20,7 +20,7 @@ lint:
     uv run ruff check .
     uv run ruff format --check .
 
-# Download new Statistics Canada and Elections Canada releases into data/raw/
+# Download new Statistics Canada tables and other published files into data/raw/
 extract:
     uv run pst extract
 

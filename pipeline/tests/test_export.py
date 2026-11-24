@@ -17,6 +17,7 @@ from public_spend_tracker_pipeline.common.paths import (
     DATABASE_FILE_NAME,
     serving_build_folder,
 )
+from public_spend_tracker_pipeline.release import export
 from public_spend_tracker_pipeline.release.approve import approve
 from public_spend_tracker_pipeline.release.export import (
     ExportError,
@@ -225,3 +226,91 @@ def test_export_site_can_export_a_build_that_is_not_approved(data_root, out):
 def test_export_site_returns_1_when_no_build_is_approved(data_root, out):
     assert export_site(data_root, destination=out) == 1
     assert not out.exists()
+
+
+# --- The riding map's files -------------------------------------------------
+
+RIDING_FILES = [
+    "election_candidates.json",
+    "election_districts.json",
+    "elections.json",
+    "parties.json",
+    "ridings.json",
+    "ridings.topo.json",
+]
+
+
+def add_riding_data(data_root, build_id):
+    """Riding tables, as a build made after the riding map was added has them."""
+    db = duckdb.connect(str(serving_build_folder(build_id, data_root) / DATABASE_FILE_NAME))
+    create(db, "elections", ["code", "name_en", "name_fr", "voting_day", "general"],
+           [("ge45", "45th general election", "45e élection générale", date(2025, 4, 28),
+             True)])  # fmt: skip
+    create(db, "parties",
+           ["code", "name_en", "name_fr", "short_en", "short_fr", "label", "sort_order"],
+           [("liberal", "Liberal", "Libéral", "Liberal", "Libéral", "Liberal/Libéral", 1),
+            ("ndp", "NDP-New Democratic Party", "NPD-Nouveau Parti démocratique", "NDP", "NPD",
+             "x", 2)])  # fmt: skip
+    create(db, "ridings", ["code", "name_en", "name_fr", "jurisdiction", "source_id", "release"],
+           [("10001", "Avalon", "Avalon", "nl", "elections-x", RELEASE)])  # fmt: skip
+    create(db, "election_districts",
+           ["election", "riding", "name_at_election_en", "name_at_election_fr", "renamed",
+            "population", "electors", "voting_desks", "valid_ballots", "rejected_ballots",
+            "total_ballots", "turnout_pct", "source_id", "release"],
+           [("ge45", "10001", "Avalon", "Avalon", False, 80000, 70000, 200, 47030, 389, 47419,
+             66.9, "elections-y", RELEASE)])  # fmt: skip
+    create(db, "election_candidates",
+           ["election", "riding", "candidate", "party", "votes", "vote_share_pct", "elected",
+            "incumbent", "margin_votes", "margin_pct", "residence", "occupation", "source_id",
+            "release"],
+           [("ge45", "10001", "Steve Kent", "ndp", 16953, 36.0, False, False, None, None,
+             "Somewhere", "Someone", "elections-z", RELEASE),
+            ("ge45", "10001", "Paul Connors", "liberal", 27563, 58.6, True, True, 10610, 22.6,
+             "Somewhere", "Someone", "elections-z", RELEASE)])  # fmt: skip
+    db.close()
+
+
+@pytest.fixture
+def stand_in_map(monkeypatch):
+    """Replace the map step (tested in test_riding_map.py) and record what it was given."""
+    calls = []
+
+    def write_map(build_id, destination, codes, data_root):
+        calls.append((build_id, codes))
+        destination.write_text("{}", encoding="utf-8")
+        return len(codes)
+
+    monkeypatch.setattr(export, "write_build_riding_map", write_map)
+    return calls
+
+
+def test_riding_files_are_written_when_the_build_has_riding_data(data_root, out, stand_in_map):
+    add_riding_data(data_root, NEWER)
+
+    rows = run_export(NEWER, out, data_root)
+
+    assert sorted(path.name for path in out.iterdir()) == sorted(EXPORTED_FILES + RIDING_FILES)
+    assert stand_in_map == [(NEWER, {"10001"})]
+    assert rows["ridings.topo.json"] == 1
+    assert read(out, "elections.json") == [{
+        "code": "ge45", "name_en": "45th general election",
+        "name_fr": "45e élection générale", "voting_day": "2025-04-28", "general": True,
+    }]  # fmt: skip
+    candidates = read(out, "election_candidates.json")
+    assert [c["candidate"] for c in candidates] == [
+        "Paul Connors",
+        "Steve Kent",
+    ]  # most votes first
+    assert candidates[0] == {
+        "election": "ge45", "riding": "10001", "candidate": "Paul Connors", "party": "liberal",
+        "votes": 27563, "vote_share_pct": 58.6, "elected": True, "incumbent": True,
+        "margin_votes": 10610, "margin_pct": 22.6, "release": "2025-11-27",
+        "source_id": "elections-z",
+    }  # fmt: skip
+    assert "label" not in read(out, "parties.json")[0]
+
+
+def test_builds_without_riding_data_skip_the_riding_files(data_root, out, stand_in_map):
+    run_export(OLDER, out, data_root)
+    assert sorted(path.name for path in out.iterdir()) == EXPORTED_FILES
+    assert stand_in_map == []
