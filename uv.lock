@@ -137,12 +137,14 @@ name = "public-spend-tracker-pipeline"
 version = "0.1.0"
 source = { editable = "pipeline" }
 dependencies = [
+    { name = "certifi" },
     { name = "duckdb" },
     { name = "httpx" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2024.2.2" },
     { name = "duckdb", specifier = ">=2.0" },
     { name = "httpx", specifier = ">=0.27" },
 ]

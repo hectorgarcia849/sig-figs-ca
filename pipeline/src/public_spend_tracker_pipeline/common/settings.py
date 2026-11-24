@@ -1,8 +1,8 @@
 """Fixed settings for the pipeline.
 
 One place for every value the pipeline depends on: which Statistics Canada
-tables we use and why, where data files are stored, and how we talk to
-Statistics Canada's servers. No other module should contain a bare web
+tables and Elections Canada files we use and why, where data files are
+stored, and how we talk to their servers. No other module should contain a bare web
 address, table number or time limit.
 """
 
@@ -166,6 +166,90 @@ STATCAN_TABLES: tuple[StatCanTable, ...] = (
             ("Prices", "prices"),
             ("Estimates", "estimate"),
         ),
+    ),
+)
+
+
+# --- The Elections Canada files we use --------------------------------------
+
+# Language code for a file that has both English and French in it.
+ENGLISH_AND_FRENCH = f"{ENGLISH},{FRENCH}"
+
+# The licences our sources are published under, as recorded in manifests.
+OPEN_GOVERNMENT_LICENCE = "Open Government Licence - Canada"
+OPEN_GOVERNMENT_LICENCE_URL = "https://open.canada.ca/en/open-government-licence-canada"
+ELECTIONS_CANADA_TERMS = (
+    "Elections Canada terms and conditions: non-commercial reproduction allowed with "
+    "attribution; commercial redistribution needs written permission"
+)
+ELECTIONS_CANADA_TERMS_URL = (
+    "https://www.elections.ca/content.aspx?section=pri&document=index&lang=e"
+)
+
+
+@dataclass(frozen=True)
+class ElectionsFile:
+    """One file we download from Elections Canada, and why we need it.
+
+    Elections Canada has no API that reports release dates, so a new release
+    is recognised by a change in the file's contents (see extract/elections.py).
+
+    name         Our short name for the file, used in folder names and logs.
+    purpose      Plain-English reason we use the file.
+    url          Where the file is downloaded from.
+    listing_url  The page that lists the file and states its licence.
+    licence      The licence it is published under (see the constants above).
+    licence_url  Where that licence is written down.
+    language     ENGLISH, FRENCH or ENGLISH_AND_FRENCH.
+    """
+
+    name: str
+    purpose: str
+    url: str
+    listing_url: str
+    licence: str
+    licence_url: str
+    language: str
+
+
+# Official results of the 45th general election (28 April 2025).
+#
+# Licence note (November 2026): Elections Canada put the official results of
+# the 42nd, 43rd and 44th general elections on open.canada.ca under the Open
+# Government Licence, but the 45th's are so far only on elections.ca, under its
+# own non-commercial terms. We use them on the assumption they will be posted
+# under the Open Government Licence like the others; when they are, switch
+# these entries to the open.canada.ca copy.
+GE45_RESULTS_URL = "https://www.elections.ca/res/rep/off/ovrGE45/62/data_donnees"
+GE45_RESULTS_PAGE = "https://www.elections.ca/res/rep/off/ovrGE45/home.html"
+
+ELECTIONS_FILES: tuple[ElectionsFile, ...] = (
+    ElectionsFile(
+        name="federal_electoral_districts",
+        purpose="Boundaries of the 343 federal ridings (2023 Representation Order), for the map",
+        url="https://www.elections.ca/res/cir/mapsCorner/edb/FederalElectoralDistricts_SHP.zip",
+        listing_url="https://open.canada.ca/data/en/dataset/18bf3ea7-1940-46ec-af52-9ba3f77ed708",
+        licence=OPEN_GOVERNMENT_LICENCE,
+        licence_url=OPEN_GOVERNMENT_LICENCE_URL,
+        language=ENGLISH_AND_FRENCH,
+    ),
+    ElectionsFile(
+        name="ge45_results_by_district",
+        purpose="2025 election: electors, ballots cast and turnout in each riding",
+        url=f"{GE45_RESULTS_URL}/table_tableau11.csv",
+        listing_url=GE45_RESULTS_PAGE,
+        licence=ELECTIONS_CANADA_TERMS,
+        licence_url=ELECTIONS_CANADA_TERMS_URL,
+        language=ENGLISH_AND_FRENCH,
+    ),
+    ElectionsFile(
+        name="ge45_results_by_candidate",
+        purpose="2025 election: votes for every candidate in each riding, and who was elected",
+        url=f"{GE45_RESULTS_URL}/table_tableau12.csv",
+        listing_url=GE45_RESULTS_PAGE,
+        licence=ELECTIONS_CANADA_TERMS,
+        licence_url=ELECTIONS_CANADA_TERMS_URL,
+        language=ENGLISH_AND_FRENCH,
     ),
 )
 

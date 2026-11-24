@@ -25,6 +25,7 @@ import ssl
 import time
 from collections.abc import Callable
 
+import certifi
 import httpx
 
 from public_spend_tracker_pipeline.common.settings import (
@@ -112,7 +113,10 @@ def open_client() -> httpx.Client:
         with open_client() as client:
             client.get(...)
     """
-    encryption = ssl.create_default_context()
+    # Trust the certificate authorities in certifi's up-to-date list (the one httpx
+    # uses by default). Python's built-in list can lag behind: in November 2026 it
+    # lacked the authority behind Elections Canada's certificate (Sectigo R46).
+    encryption = ssl.create_default_context(cafile=certifi.where())
     encryption.set_ecdh_curve(TLS_KEY_EXCHANGE)  # see settings.TLS_KEY_EXCHANGE for why
     connection = httpx.HTTPTransport(verify=encryption)
     return httpx.Client(

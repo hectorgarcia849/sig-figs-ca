@@ -18,45 +18,40 @@ Where one release ends up:
         _manifest.json     what we downloaded, from where, when
 
 Files are first written to a temporary folder, which is renamed to the release
-folder only once everything has downloaded. So a release folder always holds a
-complete download, and a failed run leaves nothing behind: the next run simply
-tries again.
+folder only once everything has downloaded (see extract/files.py). So a release
+folder always holds a complete download, and a failed run leaves nothing behind.
 
-Run it on its own from the repository root with:
-
-    uv run python -m public_spend_tracker_pipeline.extract.statcan
+"pst extract" runs this together with the other sources.
 """
 
 from __future__ import annotations
 
-import hashlib
-import html
 import json
 import logging
-import re
-import shutil
-import sys
-import tempfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Literal
 
 import httpx
 
-from public_spend_tracker_pipeline.common.http_client import open_client
-from public_spend_tracker_pipeline.common.logs import start_logging, stop_logging
 from public_spend_tracker_pipeline.common.paths import (
     MANIFEST_FILE_NAME,
-    new_build_id,
     raw_release_folder,
-    raw_table_folder,
 )
 from public_spend_tracker_pipeline.common.settings import (
     DATA_ROOT,
     STATCAN_API_URL,
     STATCAN_TABLES,
     StatCanTable,
+)
+from public_spend_tracker_pipeline.extract.files import (
+    ZIP_SIGNATURE,
+    DownloadedFile,
+    ExtractError,
+    ExtractResult,
+    new_release_folder,
+    save_download,
+    web_page_title,
 )
 
 log = logging.getLogger(__name__)
@@ -68,28 +63,24 @@ SOURCE_NAME = "statcan"
 # (The manifest's file name comes from common/paths.py, since every extractor shares it.)
 METADATA_FILE_NAME = "metadata.json"
 
-# Start of the name of the temporary folder used while downloading.
-TEMP_FOLDER_PREFIX = ".incomplete-"
-
-# Downloads are read and written in pieces of this size, so large files never
-# need to fit in memory at once.
-DOWNLOAD_CHUNK_BYTES = 1024 * 1024
-
 # The status Statistics Canada's API reports when a request worked.
 STATCAN_SUCCESS = "SUCCESS"
-
-# Every table download is a zip file, and every zip file starts with these bytes.
-ZIP_SIGNATURE = b"PK\x03\x04"
 
 # Added to the error when Statistics Canada sends a web page instead of data:
 # usually its "website is currently unavailable" page, during maintenance.
 WEB_PAGE_HINT = "Its site may be down for maintenance: try again later."
 
-# The most of a web page's title quoted in an error.
-MAX_TITLE_CHARACTERS = 120
+__all__ = [  # ZIP_SIGNATURE is re-exported for the tests' fake server.
+    "METADATA_FILE_NAME",
+    "SOURCE_NAME",
+    "ZIP_SIGNATURE",
+    "StatCanError",
+    "extract_all",
+    "extract_table",
+]
 
 
-class StatCanError(Exception):
+class StatCanError(ExtractError):
     """Statistics Canada answered, but not with the data we asked for."""
 
 
@@ -118,45 +109,9 @@ class TableDetails:
         return date.fromisoformat(self.release_time[:10])
 
 
-@dataclass(frozen=True)
-class DownloadedFile:
-    """One file we downloaded, with a fingerprint to prove what it contained.
-
-    sha256  A fingerprint of the file's contents. If even one byte changes,
-            the fingerprint changes, so it shows the file is exactly what we
-            downloaded.
-    """
-
-    name: str
-    language: str
-    url: str
-    sha256: str
-    size_bytes: int
-
-
-ExtractStatus = Literal["downloaded", "already_current", "failed"]
-
-
-@dataclass(frozen=True)
-class ExtractResult:
-    """What happened when we tried to extract one table."""
-
-    table: StatCanTable
-    status: ExtractStatus
-    release_date: date | None = None
-    message: str = ""
-
-    def describe(self) -> str:
-        """One line for the log.
-
-        For example: "10100005 cofog_consolidated: downloaded release 2025-11-27".
-        """
-        label = f"{self.table.product_id} {self.table.name}"
-        if self.status == "downloaded":
-            return f"{label}: downloaded release {self.release_date}"
-        if self.status == "already_current":
-            return f"{label}: already have release {self.release_date}"
-        return f"{label}: FAILED - {self.message}"
+def _label(table: StatCanTable) -> str:
+    """How the log names a table, e.g. "10100005 cofog_consolidated"."""
+    return f"{table.product_id} {table.name}"
 
 
 # --- Asking Statistics Canada -----------------------------------------------
@@ -214,10 +169,7 @@ def _web_page_error(page: str, what: str) -> str:
     is currently unavailable") instead of table 10100005. Its site may be down
     for maintenance: try again later.'
     """
-    found = re.search(r"<title>(.*?)</title>", page, re.IGNORECASE | re.DOTALL)
-    title = " ".join(html.unescape(found.group(1)).split()) if found else ""
-    if len(title) > MAX_TITLE_CHARACTERS:
-        title = title[:MAX_TITLE_CHARACTERS].rstrip() + "…"
+    title = web_page_title(page)
     shown = f' ("{title}")' if title else ""
     return f"Statistics Canada sent a web page{shown} instead of {what}. {WEB_PAGE_HINT}"
 
@@ -243,25 +195,15 @@ def download_file(client: httpx.Client, url: str, folder: Path, language: str) -
     maintenance page), so it is never saved as a release.
     """
     name = url.rsplit("/", 1)[-1]
-    fingerprint = hashlib.sha256()
-    size_bytes = 0
+
+    def check_start(start: bytes) -> None:
+        if not start.startswith(ZIP_SIGNATURE):
+            page = start.decode("utf-8", errors="replace")
+            raise StatCanError(_web_page_error(page, f"the zip file {name}"))
+
     with client.stream("GET", url) as response:
         response.raise_for_status()
-        with open(folder / name, "wb") as file:
-            for chunk in response.iter_bytes(DOWNLOAD_CHUNK_BYTES):
-                if size_bytes == 0 and not chunk.startswith(ZIP_SIGNATURE):
-                    page = chunk.decode("utf-8", errors="replace")
-                    raise StatCanError(_web_page_error(page, f"the zip file {name}"))
-                file.write(chunk)
-                fingerprint.update(chunk)
-                size_bytes += len(chunk)
-    return DownloadedFile(
-        name=name,
-        language=language,
-        url=url,
-        sha256=fingerprint.hexdigest(),
-        size_bytes=size_bytes,
-    )
+        return save_download(response, folder / name, language, check_start)
 
 
 def write_manifest(
@@ -294,39 +236,26 @@ def extract_table(
 ) -> ExtractResult:
     """Download a table's latest release, unless we already have it."""
     details = fetch_table_details(client, table.product_id)
-    table_folder = raw_table_folder(SOURCE_NAME, table.product_id, data_root)
     release_folder = raw_release_folder(
         SOURCE_NAME, table.product_id, details.release_date, data_root
     )
-
     if (release_folder / MANIFEST_FILE_NAME).exists():
-        return ExtractResult(table, "already_current", details.release_date)
-    if release_folder.exists():
-        raise StatCanError(
-            f"{release_folder} exists but has no manifest, so it is incomplete. "
-            "Delete that folder and run again."
-        )
+        return ExtractResult(_label(table), "already_current", details.release_date)
 
-    table_folder.mkdir(parents=True, exist_ok=True)
-    temp_folder = Path(tempfile.mkdtemp(prefix=TEMP_FOLDER_PREFIX, dir=table_folder))
-    try:
+    with new_release_folder(release_folder) as folder:
         files = [
             download_file(
                 client,
                 fetch_download_url(client, table.product_id, language),
-                temp_folder,
+                folder,
                 language,
             )
             for language in table.languages
         ]
-        (temp_folder / METADATA_FILE_NAME).write_bytes(details.raw_response)
-        write_manifest(temp_folder, table, details, files)
-        temp_folder.rename(release_folder)
-    finally:
-        # Only still there if something above failed: remove the partial download.
-        shutil.rmtree(temp_folder, ignore_errors=True)
+        (folder / METADATA_FILE_NAME).write_bytes(details.raw_response)
+        write_manifest(folder, table, details, files)
 
-    return ExtractResult(table, "downloaded", details.release_date)
+    return ExtractResult(_label(table), "downloaded", details.release_date)
 
 
 def extract_all(
@@ -339,32 +268,8 @@ def extract_all(
     for table in tables:
         try:
             result = extract_table(client, table, data_root)
-        except (StatCanError, httpx.HTTPError) as error:
-            result = ExtractResult(table, "failed", message=str(error))
+        except (ExtractError, httpx.HTTPError) as error:
+            result = ExtractResult(_label(table), "failed", message=str(error))
         log.info(result.describe())
         results.append(result)
     return results
-
-
-def run_extract(data_root: Path = DATA_ROOT) -> int:
-    """Extract every table into a data folder and report. Returns 1 if any table failed, else 0."""
-    log_path = start_logging("extract", new_build_id(), data_root)
-    try:
-        with open_client() as client:
-            results = extract_all(client, data_root=data_root)
-        failed = [result for result in results if result.status == "failed"]
-        if failed:
-            log.error(f"{len(failed)} of {len(results)} tables failed. Log: {log_path}")
-            return 1
-        return 0
-    finally:
-        stop_logging()
-
-
-def main() -> int:
-    """Extract every table into the default data folder (see settings.DATA_ROOT)."""
-    return run_extract(DATA_ROOT)
-
-
-if __name__ == "__main__":
-    sys.exit(main())

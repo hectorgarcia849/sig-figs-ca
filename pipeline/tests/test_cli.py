@@ -157,7 +157,8 @@ def write_json(path, content):
 def test_status_on_an_empty_folder(tmp_path, capsys):
     assert cli.main(["--data-root", str(tmp_path), "status"]) == 0
     output = capsys.readouterr().out
-    assert "10-10-0005-01  cofog_consolidated       not downloaded" in output
+    assert "10-10-0005-01  cofog_consolidated           not downloaded" in output
+    assert "elections.ca   ge45_results_by_candidate    not downloaded" in output
     assert "Builds (newest first)\n  none yet" in output
     assert "Approved build: none yet" in output
 
@@ -180,7 +181,7 @@ def test_status_shows_downloads_builds_and_the_approved_build(tmp_path, capsys):
 
     assert cli.main(["--data-root", str(tmp_path), "status"]) == 0
     output = capsys.readouterr().out
-    assert "10-10-0005-01  cofog_consolidated       2025-11-27   2 releases stored" in output
+    assert "10-10-0005-01  cofog_consolidated           2025-11-27   2 releases stored" in output
     assert (
         "  20261115-070145  complete    5 checks passed   2026-11-15 07:01 UTC\n"
         "  20261115-062210  incomplete  (no manifest)"
