@@ -183,6 +183,63 @@ export const fr: Messages = {
 		compareGovernments: 'Comparer les gouvernements pour cette fonction',
 		compareWithOthers: "Comparer avec d'autres provinces et territoires"
 	},
+	ridings: 'Circonscriptions',
+	ridingsTitle: 'Circonscriptions fédérales',
+	ridingsPage: {
+		intro: (count: string, election: string, day: string) =>
+			`Qui a remporté chacune des ${count} circonscriptions fédérales du Canada à la ${election}, le ${day}.`,
+		electedNote:
+			'Indique qui a été élu ce jour-là. Les élections partielles qui ont suivi et les députés qui ont changé de parti ne sont pas encore indiqués.',
+		seats: 'Sièges remportés',
+		seatCount: (party: string, seats: string) => `${party} : ${seats}`,
+		partyFilterNote: 'Choisissez des partis pour n’afficher que leurs circonscriptions.',
+		allParties: 'Afficher tous les partis',
+		province: 'Province ou territoire',
+		allProvinces: 'Tout le Canada',
+		search: 'Trouver une circonscription',
+		searchHint: 'Tapez une partie de son nom, en français ou en anglais.',
+		matches: (count: number) =>
+			count === 0
+				? 'Aucune circonscription ne correspond.'
+				: count === 1
+					? '1 circonscription correspond.'
+					: `${count} circonscriptions correspondent.`,
+		map: 'Carte des circonscriptions',
+		mapHelp:
+			'Chaque circonscription est colorée selon le parti de son élu. Faites glisser pour déplacer la carte ; pincez, ou faites défiler en tenant Ctrl (⌘ sur Mac), pour zoomer. Au clavier : les flèches déplacent, plus et moins zooment. Chaque circonscription figure aussi dans le tableau ci-dessous.',
+		zoomIn: 'Zoom avant',
+		zoomOut: 'Zoom arrière',
+		showAll: 'Afficher tout le Canada',
+		mapLoading: 'Chargement de la carte…',
+		mapLoadFailed:
+			'La carte n’a pas pu être chargée. Vérifiez votre connexion et rechargez la page. Le tableau ci-dessous présente chaque circonscription.',
+		choose:
+			'Choisissez une circonscription sur la carte, ou trouvez-la par son nom, pour voir son résultat.',
+		close: 'Fermer',
+		renamed: (name: string) => `Appelée ${name} à l’élection de 2025.`,
+		elected: 'Élu(e)',
+		reElected: 'Réélu(e)',
+		won: (votes: string, points: string) => `Majorité de ${votes} voix (${points} points).`,
+		turnout: (percent: string) => `Participation : ${percent}.`,
+		candidates: 'Candidats',
+		candidate: 'Candidat(e)',
+		party: 'Parti',
+		votes: 'Voix',
+		share: 'Part',
+		candidatesLoading: 'Chargement de tous les candidats…',
+		candidatesLoadFailed: 'Les autres candidats n’ont pas pu être chargés.',
+		source: 'Source : Élections Canada,',
+		mapSource:
+			'Limites des circonscriptions : Élections Canada. Littoral : Ressources naturelles Canada, Atlas du Canada.',
+		table: 'Toutes les circonscriptions',
+		tableShown: (shown: string, total: string) =>
+			`${shown} circonscriptions sur ${total} affichées.`,
+		riding: 'Circonscription',
+		winner: 'Élu(e)',
+		margin: 'Majorité',
+		turnoutColumn: 'Participation',
+		showOnMap: (name: string) => `Afficher ${name} sur la carte`
+	},
 	privacy: 'Confidentialité',
 	notFound: {
 		title: 'Page introuvable',

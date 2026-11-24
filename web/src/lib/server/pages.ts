@@ -16,6 +16,7 @@ export function pageAddresses(lang: Language): string[] {
 		`/${lang}/functions`,
 		...functionIds().map((id) => `/${lang}/functions/${id}`),
 		`/${lang}/compare`,
+		`/${lang}/ridings`,
 		`/${lang}/methodology`,
 		`/${lang}/privacy`
 	];

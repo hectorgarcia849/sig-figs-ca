@@ -28,8 +28,8 @@
 	const otherLanguageAddress = $derived(
 		resolve(addressInOtherLanguage(page.url.pathname, data.lang) as Path)
 	);
-	// On Compare, the address's query holds the comparison, so the language
-	// switch keeps it. Read only in the browser: built pages have no query.
+	// On Compare and Ridings, the address's query holds the choices, so the
+	// language switch keeps them. Read only in the browser: built pages have no query.
 	// (A $derived would read the query while pages are built, which SvelteKit forbids.)
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let query = $state('');
@@ -46,6 +46,7 @@
 		{ label: m.governments, href: resolve('/[lang=lang]/governments', { lang: data.lang }) },
 		{ label: m.functions, href: resolve('/[lang=lang]/functions', { lang: data.lang }) },
 		{ label: m.compare, href: resolve('/[lang=lang]/compare', { lang: data.lang }) },
+		{ label: m.ridings, href: resolve('/[lang=lang]/ridings', { lang: data.lang }) },
 		{ label: m.methodology, href: resolve('/[lang=lang]/methodology', { lang: data.lang }) }
 	]);
 </script>

@@ -1,3 +1,5 @@
 engineStrict: true
 allowBuilds:
   esbuild: true
+  # An optional speed-up for mapshaper (the riding map tool); it works without it.
+  msgpackr-extract: false

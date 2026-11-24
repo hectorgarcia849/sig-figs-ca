@@ -190,6 +190,61 @@ export const en = {
 		compareGovernments: 'Compare governments on this function',
 		compareWithOthers: 'Compare with other provinces and territories'
 	},
+	ridings: 'Ridings',
+	ridingsTitle: 'Federal ridings',
+	ridingsPage: {
+		intro: (count: string, election: string, day: string) =>
+			`Who won each of Canada's ${count} federal ridings at the ${election}, on ${day}.`,
+		electedNote:
+			'Shows who was elected that day. Later by-elections, and MPs who changed party, are not shown yet.',
+		seats: 'Seats won',
+		seatCount: (party: string, seats: string) => `${party}: ${seats}`,
+		partyFilterNote: 'Choose parties to show only their ridings.',
+		allParties: 'Show all parties',
+		province: 'Province or territory',
+		allProvinces: 'All of Canada',
+		search: 'Find a riding',
+		searchHint: 'Type part of its name, in English or French.',
+		matches: (count: number) =>
+			count === 0
+				? 'No riding matches.'
+				: count === 1
+					? '1 riding matches.'
+					: `${count} ridings match.`,
+		map: 'Map of the ridings',
+		mapHelp:
+			'Each riding is coloured by the party of its winner. Drag to move the map; pinch, or scroll while holding Ctrl (⌘ on a Mac), to zoom. With the keyboard: arrow keys move, plus and minus zoom. Every riding is also in the table below.',
+		zoomIn: 'Zoom in',
+		zoomOut: 'Zoom out',
+		showAll: 'Show all of Canada',
+		mapLoading: 'Loading the map…',
+		mapLoadFailed:
+			'The map could not be loaded. Check your connection and reload the page. The table below has every riding.',
+		choose: 'Choose a riding on the map, or find one by name, to see its result.',
+		close: 'Close',
+		renamed: (name: string) => `Called ${name} at the 2025 election.`,
+		elected: 'Elected',
+		reElected: 'Re-elected',
+		won: (votes: string, points: string) => `Won by ${votes} votes (${points} points).`,
+		turnout: (percent: string) => `Turnout: ${percent}.`,
+		candidates: 'Candidates',
+		candidate: 'Candidate',
+		party: 'Party',
+		votes: 'Votes',
+		share: 'Share',
+		candidatesLoading: 'Loading every candidate…',
+		candidatesLoadFailed: 'The other candidates could not be loaded.',
+		source: 'Source: Elections Canada,',
+		mapSource:
+			'Riding boundaries: Elections Canada. Coastline: Natural Resources Canada, Atlas of Canada.',
+		table: 'Every riding',
+		tableShown: (shown: string, total: string) => `${shown} of ${total} ridings shown.`,
+		riding: 'Riding',
+		winner: 'Winner',
+		margin: 'Margin',
+		turnoutColumn: 'Turnout',
+		showOnMap: (name: string) => `Show ${name} on the map`
+	},
 	privacy: 'Privacy',
 	notFound: {
 		title: 'Page not found',

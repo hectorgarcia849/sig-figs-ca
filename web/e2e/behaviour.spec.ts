@@ -10,6 +10,7 @@ const PHONE = { width: 375, height: 812 };
 const PHONE_PAGES = [
 	'/',
 	'/en',
+	'/en/ridings?riding=35120',
 	'/fr/governments/federal',
 	'/en/governments/on',
 	'/en/functions/707',

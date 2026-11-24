@@ -117,3 +117,62 @@ export interface SpendingSeries extends MeasureSeries {
 	transfers: Transfers;
 	transfers_to_governments: (number | null)[];
 }
+
+/** elections.json: the federal elections whose official results we use. */
+export interface Election {
+	code: string; // e.g. "ge45"
+	name_en: string;
+	name_fr: string;
+	voting_day: string; // e.g. "2025-04-28"
+	general: boolean; // true for a general election, false for a by-election
+}
+
+/** parties.json: every party a candidate stood for, with full and short names. */
+export interface Party {
+	code: string; // e.g. "ndp"
+	name_en: string;
+	name_fr: string;
+	short_en: string; // e.g. "NDP"
+	short_fr: string; // e.g. "NPD"
+	sort_order: number;
+}
+
+/** ridings.json: the 343 federal ridings, by number, with their current names. */
+export interface Riding {
+	code: string; // the riding's number, e.g. "35105"
+	name_en: string;
+	name_fr: string;
+	jurisdiction: string; // e.g. "on"
+}
+
+/** election_districts.json: one riding at one election. */
+export interface ElectionDistrict {
+	election: string;
+	riding: string;
+	name_at_election_en: string;
+	name_at_election_fr: string;
+	renamed: boolean; // whether the riding has been renamed since
+	electors: number;
+	valid_ballots: number;
+	rejected_ballots: number;
+	total_ballots: number;
+	turnout_pct: number; // e.g. 66.9 for 66.9%
+	release: string;
+	source_id: string;
+}
+
+/** election_candidates.json: one candidate's result, most votes first in each riding. */
+export interface ElectionCandidate {
+	election: string;
+	riding: string;
+	candidate: string;
+	party: string;
+	votes: number;
+	vote_share_pct: number;
+	elected: boolean;
+	incumbent: boolean; // the riding's MP going into the election
+	margin_votes: number | null; // the winner's lead over the runner-up; winners only
+	margin_pct: number | null;
+	release: string;
+	source_id: string;
+}
